@@ -1,0 +1,2 @@
+sample_id,fastq_R1,condition,replicate,strandedness
+SAMPLE_A_rep1,/path/R1.fq.gz,COND_A,1,reverse

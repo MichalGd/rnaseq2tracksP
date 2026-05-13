@@ -1,0 +1,5 @@
+sample_id,fastq_R1,fastq_R2,condition,replicate,strandedness
+KO_12_1,/data/fastq/KO_12_1_1__ERR14875937_1.fq.gz,/data/fastq/KO_12_1_2__ERR14875937_2.fq.gz,KO,1,reverse
+KO_12_2,/data/fastq/KO_12_2_1__ERR14875940_1.fq.gz,/data/fastq/KO_12_2_2__ERR14875940_2.fq.gz,KO,2,reverse
+WT_12_1,/data/fastq/WT_12_1_1__ERR14875938_1.fq.gz,/data/fastq/WT_12_1_2__ERR14875938_2.fq.gz,WT,1,reverse
+WT_12_2,/data/fastq/WT_12_2_1__ERR14875941_1.fq.gz,/data/fastq/WT_12_2_2__ERR14875941_2.fq.gz,WT,2,reverse

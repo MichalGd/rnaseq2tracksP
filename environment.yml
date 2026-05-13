@@ -1,0 +1,30 @@
+name: rnaseq2tracks
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - star=2.7.11a
+  - samtools=1.19
+  - trim-galore=0.6.10
+  - fastqc=0.12.1
+  - multiqc=1.21
+  - ucsc-bedgraphtobigwig
+  - r-base=4.3.1
+  - r-optparse
+  - r-data.table
+  - r-ggplot2
+  - r-pheatmap
+  - r-rcolorbrewer
+  - r-rmarkdown
+  - r-knitr
+  - r-kableextra
+  - bioconductor-deseq2
+  - bioconductor-apeglm
+  - bioconductor-vsn
+  - bioconductor-rtracklayer
+  - bioconductor-genomicfeatures
+  - bioconductor-genomicranges
+  - bioconductor-genomicalignments
+  - bioconductor-rsamtools

@@ -1,0 +1,8 @@
+config/config.conf
+config/samplesheet.csv
+config/contrasts.csv
+*_output/
+bams/; bigwig/; bedGraph/; STARalignments/; STARgeneCounts/; STARlogs/
+trimmedFastq/; fastQC/; multiQC/; analysis/; reports/
+*.RData; .RData; .Rhistory
+.DS_Store; *.swp; *~

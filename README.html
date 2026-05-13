@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>README</title>
+
+
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+.main-container {
+max-width: 940px;
+margin-left: auto;
+margin-right: auto;
+}
+img {
+max-width:100%;
+}
+.tabbed-pane {
+padding-top: 12px;
+}
+.html-widget {
+margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+outline: none;
+}
+summary {
+display: list-item;
+}
+details > summary > p:only-child {
+display: inline;
+}
+pre code {
+padding: 0;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+display: inline-table;
+max-height: 500px;
+min-height: 44px;
+overflow-y: auto;
+border: 1px solid #ddd;
+border-radius: 4px;
+}
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+content: "\e259";
+font-family: 'Glyphicons Halflings';
+display: inline-block;
+padding: 10px;
+border-right: 1px solid #ddd;
+}
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+content: "\e258";
+font-family: 'Glyphicons Halflings';
+border: none;
+}
+.tabset-dropdown > .nav-tabs > li.active {
+display: block;
+}
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+border: none;
+display: inline-block;
+border-radius: 4px;
+background-color: transparent;
+}
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+display: block;
+float: none;
+}
+.tabset-dropdown > .nav-tabs > li {
+display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div id="header">
+
+
+
+
+</div>
+
+
+<div id="rnaseq2tracks-1.0" class="section level1">
+<h1>rnaseq2tracks 1.0</h1>
+<p>End-to-end RNA-seq workflow: raw FASTQ → count matrices → normalized
+BigWig tracks → differential expression.</p>
+<div id="language-map" class="section level2">
+<h2>Language map</h2>
+<table>
+<colgroup>
+<col width="25%" />
+<col width="35%" />
+<col width="39%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Layer</th>
+<th>Language</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Orchestration + external tools</td>
+<td><strong>Bash</strong></td>
+<td>STAR/samtools/TrimGalore/FastQC/MultiQC are shell-native; PID job
+throttling is idiomatic</td>
+</tr>
+<tr class="even">
+<td>Strand-aware coverage</td>
+<td><strong>R</strong> — Rsamtools + GenomicAlignments +
+rtracklayer</td>
+<td>No intermediate split-BAMs; type-safe GRanges; correct PE
+orientation</td>
+</tr>
+<tr class="odd">
+<td>bedGraph normalization</td>
+<td><strong>R</strong> — rtracklayer</td>
+<td>Direct GRanges import/export; no awk/sed</td>
+</tr>
+<tr class="even">
+<td>Count matrix + normalization</td>
+<td><strong>R</strong> — DESeq2</td>
+<td>Native</td>
+</tr>
+<tr class="odd">
+<td>Replicate merging</td>
+<td><strong>R</strong> — GenomicRanges disjoin</td>
+<td>Exact replication of original mergeBedGraph logic</td>
+</tr>
+<tr class="even">
+<td>Differential expression</td>
+<td><strong>R</strong> — DESeq2 + apeglm</td>
+<td>Native</td>
+</tr>
+<tr class="odd">
+<td>QC plots</td>
+<td><strong>R</strong> — ggplot2, pheatmap</td>
+<td>Native</td>
+</tr>
+<tr class="even">
+<td>Report</td>
+<td><strong>R Markdown</strong></td>
+<td>kableExtra + ggplot2 SF_rpm bar chart + sessionInfo</td>
+</tr>
+<tr class="odd">
+<td>BigWig conversion</td>
+<td><strong>Bash</strong> — Kent utils</td>
+<td>bedGraphToBigWig has no R equivalent</td>
+</tr>
+<tr class="even">
+<td>UCSC track file</td>
+<td><strong>Bash</strong></td>
+<td>Simple text generation</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="quick-start" class="section level2">
+<h2>Quick start</h2>
+<pre class="bash"><code>git clone https://github.com/MichalGd/rnaseq2tracks.git &amp;&amp; cd rnaseq2tracks
+conda env create -f environment.yml &amp;&amp; conda activate rnaseq2tracks
+cp config/config_template.conf config/config.conf   # fill in paths
+cp config/samplesheet_template_PE.csv config/samplesheet.csv
+cp config/contrasts_template.csv config/contrasts.csv
+bash tests/check_bash_syntax.sh
+./scripts/rnaseq2tracks.sh config/config.conf</code></pre>
+</div>
+<div id="input-fastq-naming-pe-example" class="section level2">
+<h2>Input FASTQ naming (PE example)</h2>
+<pre><code>KO_12_1_1__ERR14875937_1.fq.gz   # R1
+KO_12_1_2__ERR14875937_2.fq.gz   # R2 — set sample_id=KO_12_1 in samplesheet</code></pre>
+</div>
+<div id="samplesheet-columns" class="section level2">
+<h2>Samplesheet columns</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>PE</th>
+<th>SE</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>sample_id</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>unique, no spaces</td>
+</tr>
+<tr class="even">
+<td><code>fastq_R1</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>absolute path</td>
+</tr>
+<tr class="odd">
+<td><code>fastq_R2</code></td>
+<td>✓</td>
+<td>—</td>
+<td>absolute path</td>
+</tr>
+<tr class="even">
+<td><code>condition</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>e.g. KO, WT</td>
+</tr>
+<tr class="odd">
+<td><code>replicate</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>1, 2, 3 …</td>
+</tr>
+<tr class="even">
+<td><code>strandedness</code></td>
+<td>✓</td>
+<td>✓</td>
+<td><code>unstranded</code> / <code>forward</code> /
+<code>reverse</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="docs" class="section level2">
+<h2>Docs</h2>
+<p><a href="docs/WORKFLOW.md">Workflow</a> · <a href="docs/SCRIPTS.md">Scripts</a> · <a href="docs/INSTALLATION.md">Installation</a> · <a href="docs/USAGE.md">Usage</a> · <a href="docs/KNOWN_ISSUES.md">Known
+Issues</a> · <a href="docs/GITHUB_UPLOAD.md">GitHub Upload</a></p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

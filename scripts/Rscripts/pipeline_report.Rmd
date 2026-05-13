@@ -1,0 +1,110 @@
+---
+title: "rnaseq2tracks — Pipeline Report"
+date: "`r format(Sys.time(), '%Y-%m-%d %H:%M:%S %Z')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    theme: flatly
+    self_contained: true
+params:
+  outdir:      "."
+  config:      "config/config.conf"
+  samplesheet: "config/samplesheet.csv"
+  species:     "mouse"
+  layout:      "PE"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+library(knitr); library(kableExtra); library(ggplot2); library(data.table)
+outdir      <- params$outdir
+samplesheet <- params$samplesheet
+```
+
+## Run parameters
+
+```{r params}
+data.frame(
+  Parameter=c("Output directory","Config","Samplesheet","Species","Library layout","Report generated"),
+  Value=c(params$outdir,params$config,params$samplesheet,params$species,params$layout,as.character(Sys.time()))
+) |> kable() |> kable_styling(bootstrap_options="striped",full_width=FALSE)
+```
+
+## Samples
+
+```{r samples}
+ss <- read.csv(samplesheet, comment.char="#")
+kable(ss) |> kable_styling(bootstrap_options=c("striped","hover"),full_width=TRUE)
+```
+
+## Library statistics
+
+```{r libstats}
+f <- file.path(outdir,"analysis/counts/library_stats.tsv")
+if(file.exists(f)){
+  st <- read.table(f,sep="\t",header=TRUE,check.names=FALSE)
+  kable(st,digits=2) |> kable_styling(bootstrap_options=c("striped","condensed"))
+} else cat("Not yet generated.")
+```
+
+## Size factors (SF & SF_rpm)
+
+```{r sf}
+f <- file.path(outdir,"analysis/counts/size_factors.tsv")
+if(file.exists(f)){
+  sf <- read.table(f,sep="\t",header=TRUE)
+  kable(sf,digits=4) |> kable_styling(bootstrap_options="striped",full_width=FALSE)
+} else cat("Not yet generated.")
+```
+
+## SF_rpm distribution
+
+```{r sf_plot, fig.height=4, fig.width=7}
+f <- file.path(outdir,"analysis/counts/size_factors.tsv")
+if(file.exists(f)){
+  sf <- read.table(f,sep="\t",header=TRUE)
+  print(ggplot(sf,aes(x=reorder(sample_id,SF_rpm),y=SF_rpm,fill=condition))+
+    geom_col()+coord_flip()+
+    labs(x=NULL,y="SF_rpm",title="DESeq2 SF_rpm per sample")+theme_bw(base_size=12))
+}
+```
+
+## STAR alignment summary
+
+```{r star_logs}
+log_dir <- file.path(outdir,"STARlogs")
+lf <- list.files(log_dir,pattern="Log.final.out",full.names=TRUE)
+if(length(lf)>0){
+  parse_log <- function(f){
+    lines <- readLines(f)
+    gv <- function(pat) trimws(sub(".*\\|\\s*","",grep(pat,lines,value=TRUE)[1]))
+    data.frame(sample=sub("_Log.final.out","",basename(f)),
+      total_reads=gv("Number of input reads"),
+      pct_uniquely_mapped=gv("Uniquely mapped reads %"),
+      pct_multi=gv("% of reads mapped to multiple loci"),
+      pct_unmapped_short=gv("% of reads unmapped: too short"),stringsAsFactors=FALSE)
+  }
+  kable(do.call(rbind,lapply(lf,parse_log))) |>
+    kable_styling(bootstrap_options=c("striped","hover"),full_width=TRUE)
+} else cat("No STAR logs found.")
+```
+
+## Output files
+
+```{r outputs}
+cf <- c("raw_counts.tsv","normalized_counts.tsv","fpkm_counts.tsv","tpm_counts.tsv","size_factors.tsv")
+bw <- list.files(file.path(outdir,"bigwig"),pattern="\\.bw$")
+de <- list.files(file.path(outdir,"analysis/DE"),pattern="_DE_results\\.tsv$")
+data.frame(
+  Type=c(rep("Count matrix",length(cf)),rep("BigWig",length(bw)),rep("DE results",length(de))),
+  File=c(cf,bw,de)) |> kable() |> kable_styling(bootstrap_options="striped",full_width=FALSE)
+```
+
+## Session info
+
+```{r sessioninfo, echo=TRUE}
+si <- file.path(outdir,"analysis/counts/sessionInfo_normalize.txt")
+if(file.exists(si)) cat(readLines(si),sep="\n") else print(sessionInfo())
+```
