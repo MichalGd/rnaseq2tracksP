@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # ORIGIN: VERBATIM COPY — fastq2tracks/tests/check_bash_syntax.sh
+# Quick bash -n syntax check on all .sh scripts.
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PASS=0; FAIL=0

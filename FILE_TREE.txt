@@ -1,9 +1,11 @@
-# rnaseq2tracks v2.0 — file tree
+# rnaseq2tracks v3.0 — file tree
 
 ./.gitattributes
 ./.gitignore
 ./CHANGELOG.md
+./CITATION.cff
 ./FILE_TREE.txt
+./LICENSE
 ./MANIFEST.sha256
 ./README.md
 ./config/config_template.conf
@@ -37,3 +39,4 @@
 ./scripts/star_SE_single.sh
 ./scripts/trimgalore_single.sh
 ./tests/check_bash_syntax.sh
+./tests/run_smoke_test.sh

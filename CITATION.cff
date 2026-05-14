@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "rnaseq2tracks"
+version: "3.0"
+date-released: "2026-05-13"
+abstract: >
+  End-to-end RNA-seq workflow from raw FASTQ to count matrices,
+  DESeq2-normalized BigWig tracks, and differential expression results.
+  Supports single-end and paired-end libraries, strand-specific coverage,
+  and UCSC-compatible BigWig output for human and mouse genomes.
+authors:
+  - family-names: Gdula
+    given-names: Michal
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+license: MIT
+repository-code: "https://github.com/MichalGd/rnaseq2tracksP"
+keywords:
+  - RNA-seq
+  - bioinformatics
+  - DESeq2
+  - STAR
+  - BigWig
+  - UCSC
+  - epigenomics
+  - chromatin
