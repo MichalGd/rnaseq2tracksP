@@ -1,60 +1,51 @@
 #!/usr/bin/env bash
-# =============================================================================
-# norm_bedgraph_to_bigwig.sh
-# =============================================================================
-# ORIGIN: ADAPTED — RNA-seq/scripts/ShellScripts/normBedGrpaphToBigWigM.sh
-# v3 changes:
-#   - CHROMOSOME_NAMING=ucsc|ensembl  (both human and mouse)
-#   - REGULAR_CHROMS_ONLY=true|false  (escape hatch for custom genomes)
-#   - keeps <stem>.all_chromosomes.bedGraph for debugging when filtering is on
-#   - accepts SPECIES from environment (set by master script)
-#
-# Usage (called by master with env vars pre-set):
-#   norm_bedgraph_to_bigwig.sh <bedGraph[.gz]> <chrom_sizes> <outdir> <kentutils_dir>
-# =============================================================================
+# ORIGIN: ADAPTED v1→v3 — chr filter using SPECIES, CHROMOSOME_NAMING, REGULAR_CHROMS_ONLY
+# Usage: norm_bedgraph_to_bigwig.sh <input.bedGraph.gz_or_.bedGraph> <chrom.sizes> <outdir> <kentutils_dir>
+# Env vars (exported by master): SPECIES CHROMOSOME_NAMING REGULAR_CHROMS_ONLY
 set -euo pipefail
-BG="$1"; CHROM="$2"; OUTDIR="$3"; KENT="$4"
+INPUT="$1"; CS="$2"; OUTDIR="$3"; KENT="$4"
 mkdir -p "$OUTDIR"
+BASE="$(basename "$INPUT" .gz)"; BASE="${BASE%.bedGraph}"
 
-BASE="$(basename "$BG")"; STEM="${BASE%.gz}"; STEM="${STEM%.bedGraph}"
-ALL_BG="$OUTDIR/${STEM}.all_chromosomes.bedGraph"
-SORTED="$OUTDIR/${STEM}S.bedGraph"
-trap 'rm -f "$SORTED"' EXIT
-
-# Decompress
-if [[ "$BG" == *.gz ]]; then gunzip -c "$BG" > "$ALL_BG"
-else cp "$BG" "$ALL_BG"; fi
-
-# Build chromosome filter pattern based on CHROMOSOME_NAMING and SPECIES
-SPECIES="${SPECIES:-mouse}"
-CHR_NAMING="${CHROMOSOME_NAMING:-ucsc}"
-REGULAR="${REGULAR_CHROMS_ONLY:-true}"
-
-chr_pattern() {
-  local sp="$1" nm="$2"
-  if   [[ "$nm" == "ucsc"    && "$sp" == "human" ]]; then echo '^chr([1-9]|1[0-9]|2[0-2]|X|Y|M)\t'
-  elif [[ "$nm" == "ucsc"    && "$sp" == "mouse" ]]; then echo '^chr([1-9]|1[0-9]|X|Y|M)\t'
-  elif [[ "$nm" == "ensembl" && "$sp" == "human" ]]; then echo '^([1-9]|1[0-9]|2[0-2]|X|Y|MT)\t'
-  elif [[ "$nm" == "ensembl" && "$sp" == "mouse" ]]; then echo '^([1-9]|1[0-9]|X|Y|MT)\t'
-  else echo "ERROR: unknown CHROMOSOME_NAMING=$nm / SPECIES=$sp" >&2; exit 1; fi
-}
-
-if [[ "$REGULAR" == "true" ]]; then
-  PATTERN="$(chr_pattern "$SPECIES" "$CHR_NAMING")"
-  grep -E "$PATTERN" "$ALL_BG" \
-    | LC_COLLATE=C sort -k1,1 -k2,2n > "$SORTED"
-  echo "  Filtered to canonical ${CHR_NAMING} ${SPECIES} chromosomes"
+# Decompress if needed
+if [[ "$INPUT" == *.gz ]]; then
+  DECOFILE="$OUTDIR/${BASE}.bedGraph"
+  zcat "$INPUT" > "$DECOFILE"
 else
-  LC_COLLATE=C sort -k1,1 -k2,2n "$ALL_BG" > "$SORTED"
-  echo "  REGULAR_CHROMS_ONLY=false — all chromosomes retained"
+  DECOFILE="$INPUT"
 fi
 
-"${KENT}/bedGraphToBigWig" "$SORTED" "$CHROM" "$OUTDIR/${STEM}S.bw"
+SORTED="$OUTDIR/${BASE}.sorted.bedGraph"
+sort -k1,1 -k2,2n "$DECOFILE" > "$SORTED"
+[[ "$INPUT" == *.gz ]] && rm -f "$DECOFILE"
+
+FINAL="$SORTED"
+SP="${SPECIES:-mouse}"; NAMING="${CHROMOSOME_NAMING:-ucsc}"; FILTER="${REGULAR_CHROMS_ONLY:-true}"
+
+chr_pattern() {
+  local sp="$1" naming="$2"
+  case "${sp}:${naming}" in
+    human:ucsc)    echo '^(chr([1-9]|1[0-9]|2[0-2])|chrX|chrY|chrM)[[:space:]]' ;;
+    human:ensembl) echo '^([1-9]|1[0-9]|2[0-2]|X|Y|MT)[[:space:]]' ;;
+    mouse:ucsc)    echo '^(chr([1-9]|1[0-9])|chrX|chrY|chrM)[[:space:]]' ;;
+    mouse:ensembl) echo '^([1-9]|1[0-9]|X|Y|MT)[[:space:]]' ;;
+    *) echo '' ;;
+  esac
+}
+
+if [[ "$FILTER" == "true" ]]; then
+  ALLCHR="$OUTDIR/${BASE}.all_chromosomes.bedGraph.gz"
+  gzip -c "$SORTED" > "$ALLCHR"
+  PAT="$(chr_pattern "$SP" "$NAMING")"
+  if [[ -n "$PAT" ]]; then
+    FILTERED="$OUTDIR/${BASE}.filtered.bedGraph"
+    grep -E "$PAT" "$SORTED" > "$FILTERED"
+    FINAL="$FILTERED"
+  fi
+fi
+
+BW="$OUTDIR/${BASE}.bw"
+"${KENT}/bedGraphToBigWig" "$FINAL" "$CS" "$BW"
 gzip -f "$SORTED"
-trap - EXIT
-
-# Keep the all-chromosomes bedGraph only when filtering was active (for debugging)
-# Remove it if filtering is off (it is already the input = $SORTED)
-[[ "$REGULAR" == "true" ]] && gzip -f "$ALL_BG" || rm -f "$ALL_BG"
-
-echo "BigWig written: $OUTDIR/${STEM}S.bw"
+[[ -f "$OUTDIR/${BASE}.filtered.bedGraph" ]] && rm -f "$OUTDIR/${BASE}.filtered.bedGraph"
+echo "[norm_bedgraph_to_bigwig.sh] Written: $BW"

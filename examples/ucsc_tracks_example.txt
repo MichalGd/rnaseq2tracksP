@@ -1,2 +1,2 @@
-# Paste into UCSC Genome Browser -> My Data -> Custom Tracks
-track type=bigWig name="KO_12_1_Fwd" bigDataUrl=https://PLACEHOLDER_URL/KO_12_1_FwdS.bw visibility=full color=0,0,200 autoScale=off alwaysZero=on viewLimits=0:5
+track type=bigWig name="KO_12_1_Fwd" description="KO rep1 forward" bigDataUrl=https://myserver.example.com/bw/KO_12_1_FwdS.bw visibility=full color=220,50,32
+track type=bigWig name="KO_12_1_Rev" description="KO rep1 reverse" bigDataUrl=https://myserver.example.com/bw/KO_12_1_RevS.bw visibility=full color=32,50,220

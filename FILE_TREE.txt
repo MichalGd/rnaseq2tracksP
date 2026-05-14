@@ -1,4 +1,4 @@
-# rnaseq2tracks v3.0 — file tree
+# rnaseq2tracks v4.0 — file tree
 
 ./.gitattributes
 ./.gitignore
@@ -16,6 +16,7 @@
 ./docs/INSTALLATION.md
 ./docs/KNOWN_ISSUES.md
 ./docs/OUTPUTS.md
+./docs/RSEQC.md
 ./docs/SCRIPTS.md
 ./docs/USAGE.md
 ./docs/WORKFLOW.md
@@ -32,9 +33,13 @@
 ./scripts/Rscripts/normalize_bedgraph.R
 ./scripts/Rscripts/pipeline_report.Rmd
 ./scripts/bam_sort_index.sh
+./scripts/check_strand_consistency.sh
+./scripts/collect_star_qc.sh
 ./scripts/create_ucsc_tracks.sh
 ./scripts/norm_bedgraph_to_bigwig.sh
+./scripts/preflight_check.sh
 ./scripts/rnaseq2tracks.sh
+./scripts/run_rnaseq_qc.sh
 ./scripts/star_PE_single.sh
 ./scripts/star_SE_single.sh
 ./scripts/trimgalore_single.sh

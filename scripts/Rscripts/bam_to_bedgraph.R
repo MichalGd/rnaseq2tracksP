@@ -1,72 +1,82 @@
-#!/usr/bin/env Rscript
 # =============================================================================
-# bam_to_bedgraph.R
-# =============================================================================
-# ORIGIN: NEW (v2) — replaces strand_split_bedgraph.sh from v1.
-#   Rsamtools + GenomicAlignments + rtracklayer.
-#   No intermediate BAMs; correct PE pair orientation.
-#
-# Outputs:
-#   <sample_id>_unstranded.bedGraph.gz    (strandedness == "unstranded")
-#   <sample_id>_Fwd.bedGraph.gz           (stranded)
-#   <sample_id>_Rev.bedGraph.gz           (stranded)
+# bam_to_bedgraph.R — strand-aware coverage from BAM to bedGraph
+# ORIGIN: NEW v2 — replaces Bash strand-split approach
+# Language decision: Rsamtools + GenomicAlignments provides strand-correct
+#   PE handling without split BAMs; rtracklayer export.bedGraph for output
 # =============================================================================
 suppressPackageStartupMessages({
-  library(optparse); library(Rsamtools)
-  library(GenomicAlignments); library(rtracklayer)
+  library(optparse); library(Rsamtools); library(GenomicAlignments)
+  library(rtracklayer); library(GenomicRanges)
 })
 option_list <- list(
-  make_option("--samplesheet", type="character"),
-  make_option("--bamdir",      type="character"),
-  make_option("--outdir",      type="character"),
-  make_option("--layout",      type="character", default="PE")
+  make_option("--samplesheet"), make_option("--bamdir"),
+  make_option("--outdir"),      make_option("--layout", default="PE")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
 dir.create(opt$outdir, recursive=TRUE, showWarnings=FALSE)
 
 ss <- read.csv(opt$samplesheet, comment.char="#", stringsAsFactors=FALSE)
-if (opt$layout == "PE") {
-  colnames(ss)[1:6] <- c("sample_id","fastq_R1","fastq_R2","condition","replicate","strandedness")
-} else {
-  colnames(ss)[1:5] <- c("sample_id","fastq_R1","condition","replicate","strandedness")
-}
-
-export_gz <- function(gr, out_gz) {
-  tmp <- sub("\\.gz$", "", out_gz)
-  export.bedGraph(gr, tmp)
-  system2("gzip", c("-f", tmp))
-  message("  Written: ", basename(out_gz))
-}
-
-cov_to_gr <- function(cov) {
-  gr <- GRanges(as(cov, "GRanges"))
-  gr[score(gr) != 0]
-}
+layout <- opt$layout
 
 for (i in seq_len(nrow(ss))) {
-  sid    <- ss$sample_id[i]
-  strand <- ss$strandedness[i]
-  bam    <- file.path(opt$bamdir, paste0(sid, "_sortedS.bam"))
-  if (!file.exists(bam)) { warning("BAM missing: ", bam); next }
-  message("Coverage: ", sid, "  strandedness=", strand)
+  sid      <- ss$sample_id[i]
+  strand_  <- if (layout=="PE") ss$strandedness[i] else ss$strandedness[i]
+  bam_path <- file.path(opt$bamdir, paste0(sid, "_sortedS.bam"))
+  if (!file.exists(bam_path)) { warning(sid,": BAM missing, skip"); next }
 
-  bf     <- BamFile(bam, asMates=(opt$layout == "PE"))
-  param  <- ScanBamParam(flag=scanBamFlag(
-    isSecondaryAlignment=FALSE, isSupplementaryAlignment=FALSE,
-    isProperPair=if(opt$layout == "PE") TRUE else NA))
+  message("[bam_to_bedgraph.R] ", sid, "  strand=", strand_)
+  bf <- BamFile(bam_path)
 
-  if (strand == "unstranded") {
-    ga  <- if (opt$layout == "PE") as(readGAlignmentPairs(bf, param=param), "GAlignments") \
-           else readGAlignments(bf, param=param)
-    export_gz(cov_to_gr(coverage(ga)),
-              file.path(opt$outdir, paste0(sid, "_unstranded.bedGraph.gz")))
+  if (strand_ == "unstranded") {
+    if (layout == "PE")
+      reads <- readGAlignmentPairs(bf, param=ScanBamParam(flag=scanBamFlag(isSecondaryAlignment=FALSE)))
+    else
+      reads <- readGAlignments(bf, param=ScanBamParam(flag=scanBamFlag(isSecondaryAlignment=FALSE)))
+    cov <- coverage(reads)
+    bg <- rtracklayer::export(cov, connection=NULL, format="bedGraph")
+    bg_gr <- as(bg, "GRanges")
+    bg_df <- as.data.frame(bg_gr)[,c("seqnames","start","end","score")]
+    bg_df$start <- bg_df$start - 1
+    bg_df <- bg_df[bg_df$score > 0, ]
+    out <- file.path(opt$outdir, paste0(sid, "_unstranded.bedGraph"))
+    write.table(bg_df, out, sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
+    R.utils::gzip(out, overwrite=TRUE)
+
   } else {
-    ga <- if (opt$layout == "PE") as(readGAlignmentPairs(bf, param=param), "GAlignments") \
-          else readGAlignments(bf, param=param)
-    export_gz(cov_to_gr(coverage(ga[strand(ga) == "+"])),
-              file.path(opt$outdir, paste0(sid, "_Fwd.bedGraph.gz")))
-    export_gz(cov_to_gr(coverage(ga[strand(ga) == "-"])),
-              file.path(opt$outdir, paste0(sid, "_Rev.bedGraph.gz")))
+    # Strand-specific: forward and reverse
+    for (sg in c("Fwd","Rev")) {
+      if (layout == "PE") {
+        # dUTP / reverse library: R2 on RNA strand
+        #   Fwd (+) strand: R2 NOT reverse  OR  R1 reverse
+        #   Rev (-) strand: the complement
+        if (sg == "Fwd") {
+          flag_1 <- scanBamFlag(isSecondaryAlignment=FALSE, isFirstMateRead=TRUE,  isMinusStrand=TRUE)
+          flag_2 <- scanBamFlag(isSecondaryAlignment=FALSE, isFirstMateRead=FALSE, isMinusStrand=FALSE)
+        } else {
+          flag_1 <- scanBamFlag(isSecondaryAlignment=FALSE, isFirstMateRead=TRUE,  isMinusStrand=FALSE)
+          flag_2 <- scanBamFlag(isSecondaryAlignment=FALSE, isFirstMateRead=FALSE, isMinusStrand=TRUE)
+        }
+        r1 <- readGAlignments(bf, param=ScanBamParam(flag=flag_1))
+        r2 <- readGAlignments(bf, param=ScanBamParam(flag=flag_2))
+        reads_gr <- c(granges(r1), granges(r2))
+      } else {
+        if (sg == "Fwd")
+          flag_ <- scanBamFlag(isSecondaryAlignment=FALSE, isMinusStrand=TRUE)
+        else
+          flag_ <- scanBamFlag(isSecondaryAlignment=FALSE, isMinusStrand=FALSE)
+        reads_gr <- granges(readGAlignments(bf, param=ScanBamParam(flag=flag_)))
+      }
+      cov <- coverage(reads_gr)
+      bg_df <- as.data.frame(GRanges(cov))
+      bg_df <- bg_df[bg_df$score > 0, c("seqnames","start","end","score")]
+      bg_df$start <- bg_df$start - 1
+      if (sg == "Rev") bg_df$score <- -abs(bg_df$score)
+      out <- file.path(opt$outdir, paste0(sid, "_", sg, "S.bedGraph"))
+      write.table(bg_df, out, sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
+      R.utils::gzip(out, overwrite=TRUE)
+    }
   }
 }
-message("bam_to_bedgraph.R done.  Outputs in: ", opt$outdir)
+writeLines(capture.output(sessionInfo()),
+           file.path(opt$outdir, "bam_to_bedgraph_sessionInfo.txt"))
+message("[bam_to_bedgraph.R] Done.")

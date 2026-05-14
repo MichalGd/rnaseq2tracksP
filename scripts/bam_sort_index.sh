@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# ORIGIN: NEW
-# Usage: bam_sort_index.sh <input_bam> <outdir> <threads>
+# ORIGIN: NEW v1
+# Usage: bam_sort_index.sh <input.bam> <outdir> <threads>
 set -euo pipefail
-mkdir -p "$2"
-STEM="$(basename "$1" .bam)"; STEM="${STEM%_Aligned.out}"
-samtools sort -@ "${3:-4}" -o "$2/${STEM}_sortedS.bam" "$1"
-samtools index "$2/${STEM}_sortedS.bam"
+BAM="$1"; OUTDIR="$2"; THR="${3:-4}"
+BASE="$(basename "$BAM" _Aligned.out.bam)"
+SORTED="${OUTDIR}/${BASE}_sortedS.bam"
+samtools sort -@ "$THR" -o "$SORTED" "$BAM"
+samtools index "$SORTED"
