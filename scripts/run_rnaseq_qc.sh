@@ -49,7 +49,8 @@ submit() {
     for p in "${_PIDS[@]}"; do kill -0 "$p" 2>/dev/null && live+=("$p"); done
     _PIDS=("${live[@]+"${live[@]}"}"); [[ ${#_PIDS[@]} -ge $MAX_JOBS ]] && sleep 2
   done
-  eval "$@" &; _PIDS+=($!)
+  eval "$@" &
+  _PIDS+=($!)
 }
 wait_all() {
   local ok=0

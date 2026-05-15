@@ -12,7 +12,6 @@ STAR --genomeDir "$INDEX" \
   --chimSegmentMin 15 \
   --quantMode GeneCounts \
   --genomeLoad LoadAndKeep \
-  --peOverlapNbasesMin 10 \
   --outTmpDir "${TMP}/STAR_tmp_${SID}_$$" \
   --runThreadN "$THR"
 rm -rf "${TMP}/STAR_tmp_${SID}_$$"
