@@ -81,22 +81,14 @@ done
 wait_all
 echo "[run_rnaseq_qc.sh] Per-sample modules done."
 
-# geneBody_coverage — merged BAM for efficiency (ADAPTED: original ran per-sample)
-echo "[run_rnaseq_qc.sh] geneBody_coverage on merged BAM..."
-MERGED="$OUTDIR/rseqc/genebody/_merged_tmp.bam"
-BAM_LIST=()
+# geneBody_coverage — per-sample in parallel (faster than merged BAM)
+echo "[run_rnaseq_qc.sh] geneBody_coverage per-sample (parallel)..."
 for sid in "${SID[@]}"; do
   BAM="$BAMDIR/${sid}_sortedS.bam"
-  [[ -f "$BAM" ]] && BAM_LIST+=("$BAM")
+  [[ -f "$BAM" ]] || { echo "  [WARN] BAM missing: $BAM" >&2; continue; }
+  submit "RSEQC geneBody_coverage.py -i '$BAM' -r '$BED' \
+    -o '$OUTDIR/rseqc/genebody/$sid' \
+    > '$OUTDIR/rseqc/genebody/${sid}_geneBody_coverage.log' 2>&1 || true"
 done
-if [[ ${#BAM_LIST[@]} -gt 0 ]]; then
-  samtools merge -f "$MERGED" "${BAM_LIST[@]}"
-  samtools index "$MERGED"
-  RSEQC geneBody_coverage.py -i "$MERGED" -r "$BED" \
-    -o "$OUTDIR/rseqc/genebody/all_samples" \
-    > "$OUTDIR/rseqc/genebody/geneBody_coverage.log" 2>&1 || true
-  rm -f "$MERGED" "${MERGED}.bai"
-else
-  echo "  [WARN] No BAMs found for geneBody_coverage" >&2
-fi
+wait_all
 echo "[run_rnaseq_qc.sh] Done. Outputs: $OUTDIR/rseqc/"

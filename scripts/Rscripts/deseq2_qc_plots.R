@@ -18,6 +18,7 @@ vsd <- vst(dds, blind=TRUE)
 
 # PCA
 pca <- plotPCA(vsd, intgroup=c("condition","replicate"), returnData=TRUE)
+pca$replicate <- as.factor(pca$replicate)
 pct <- round(100*attr(pca,"percentVar"), 1)
 p <- ggplot(pca, aes(PC1, PC2, color=condition, shape=replicate, label=name)) +
   geom_point(size=3) + ggrepel::geom_text_repel(size=3) +

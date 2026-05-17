@@ -3,7 +3,7 @@
 # ORIGIN: ADAPTED from RNA-seq repo normalizedBedGraphs scripts
 # =============================================================================
 suppressPackageStartupMessages({
-  library(optparse); library(DESeq2); library(GenomicFeatures)
+  library(optparse); library(DESeq2); library(GenomicFeatures); library(txdbmaker)
   library(data.table)
 })
 option_list <- list(
@@ -25,7 +25,9 @@ count_list <- lapply(sids, function(s) {
   # per-sample strand column selection
   strand_ <- ss$strandedness[ss$sample_id==s]
   sc <- switch(strand_, unstranded=2L, forward=3L, reverse=4L, 2L)
-  d[, .(gene, count=.SD[[sc]]), .SDcols=names(d)]
+  out <- d[, .(gene, count=.SD[[sc]]), .SDcols=names(d)]
+  setnames(out, "count", s)
+  out
 })
 counts_mat <- Reduce(function(a,b) merge(a,b,by="gene"), count_list)
 rn <- counts_mat$gene; counts_mat <- as.matrix(counts_mat[,-1])
@@ -42,7 +44,7 @@ dds <- estimateSizeFactors(dds)
 SF  <- sizeFactors(dds)
 
 # Mean exonic RPM anchor for SF_rpm
-txdb   <- makeTxDbFromGFF(opt$gtf)
+txdb   <- txdbmaker::makeTxDbFromGFF(opt$gtf)
 exons  <- exonsBy(txdb, by="gene")
 glen   <- sum(width(reduce(exons))) / 1000
 total_mapped <- colSums(counts_mat)

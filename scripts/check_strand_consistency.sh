@@ -15,13 +15,13 @@ for i in "${!SID[@]}"; do
   [[ "$strand" == "unstranded" ]] && continue
   BAM="$BAMDIR/${sid}_sortedS.bam"
   [[ -f "$BAM" ]] || { echo "  [WARN] BAM missing, skip: $BAM"; continue; }
-  TOTAL=$(samtools view -c -F 0x900 "$BAM")
+  TOTAL=$(samtools view -c -@ ${SAMTOOLS_THREADS:-4} -F 0x900 "$BAM")
   if [[ "$LAYOUT" == "PE" ]]; then
-    FWD=$(samtools view -c -F 0x900 -f 0x50 "$BAM")
-    FWD2=$(samtools view -c -F 0x910 -f 0x80 "$BAM")
+    FWD=$(samtools view -c -@ ${SAMTOOLS_THREADS:-4} -F 0x900 -f 0x50 "$BAM")
+    FWD2=$(samtools view -c -@ ${SAMTOOLS_THREADS:-4} -F 0x910 -f 0x80 "$BAM")
     STRAND_FWD=$(( FWD + FWD2 ))
   else
-    STRAND_FWD=$(samtools view -c -F 0x900 -f 0x10 "$BAM")
+    STRAND_FWD=$(samtools view -c -@ ${SAMTOOLS_THREADS:-4} -F 0x900 -f 0x10 "$BAM")
   fi
   STRAND_REV=$(( TOTAL - STRAND_FWD ))
   SUM=$(( STRAND_FWD + STRAND_REV ))

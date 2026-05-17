@@ -1,57 +1,63 @@
 # =============================================================================
-# merge_bedgraph_replicates.R — average replicates per condition via GRanges
-# ORIGIN: ADAPTED from RNA-seq repo replicate merge logic
-# Language decision: GRanges disjoin + mean avoids sort/bedtools issues
+# merge_bedgraph_replicates.R — average replicates: ONE condition per call
+# ORIGIN: ADAPTED v4→v4.2 — condition loop moved to Bash
+# Called by: rnaseq2tracks.sh Step 14 (parallel, 1 job per condition)
 # =============================================================================
 suppressPackageStartupMessages({
-  library(optparse); library(rtracklayer); library(GenomicRanges); library(data.table)
+  library(optparse)
+  library(rtracklayer)
+  library(GenomicRanges)
+  library(data.table)
 })
+
 option_list <- list(
-  make_option("--samplesheet"),
-  make_option("--bgdir"),
-  make_option("--outdir"),
-  make_option("--genome",  default="mm39"),
-  make_option("--layout",  default="PE")
+  make_option("--condition",    type="character", help="Condition label"),
+  make_option("--sample_ids",   type="character",
+              help="Comma-separated sample IDs belonging to this condition"),
+  make_option("--strandedness", type="character", default="reverse",
+              help="unstranded / forward / reverse (all replicates same)"),
+  make_option("--bgdir",        type="character", help="Normalized bedGraph dir"),
+  make_option("--outdir",       type="character", help="Output dir for merged bedGraphs"),
+  make_option("--layout",       type="character", default="PE")
 )
-opt <- parse_args(OptionParser(option_list=option_list))
-dir.create(opt$outdir, recursive=TRUE, showWarnings=FALSE)
+opt   <- parse_args(OptionParser(option_list = option_list))
+sids  <- strsplit(opt$sample_ids, ",")[[1]]
 
-ss <- read.csv(opt$samplesheet, comment.char="#", stringsAsFactors=FALSE)
-conditions <- unique(ss$condition)
+dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 
-suffixes_for <- function(strand) {
-  if (strand=="unstranded") "_unstranded_norm" else c("_FwdS_norm","_RevS_norm")
-}
+suffixes <- if (opt$strandedness == "unstranded") "_unstranded_norm" else c("_FwdS_norm", "_RevS_norm")
 
-for (cond in conditions) {
-  sids <- ss$sample_id[ss$condition == cond]
-  strand_types <- unique(ss$strandedness[ss$condition == cond])
+for (sfx in suffixes) {
+  message("[merge_bedgraph_replicates.R] condition=", opt$condition,
+          "  suffix=", sfx, "  n_reps=", length(sids))
+  bgs <- lapply(sids, function(s) {
+    f <- file.path(opt$bgdir, paste0(s, sfx, ".bedGraph.gz"))
+    if (!file.exists(f)) { warning("Missing: ", f); return(NULL) }
+    import(f, format = "bedGraph")
+  })
+  bgs <- Filter(Negate(is.null), bgs)
+  if (length(bgs) == 0) { warning("No bedGraphs for ", opt$condition, sfx); next }
 
-  for (sfx in suffixes_for(strand_types[1])) {
-    bgs <- lapply(sids, function(s) {
-      f <- file.path(opt$bgdir, paste0(s, sfx, ".bedGraph.gz"))
-      if (!file.exists(f)) return(NULL)
-      import(f, format="bedGraph")
-    })
-    bgs <- Filter(Negate(is.null), bgs)
-    if (length(bgs) == 0) next
-
-    # GRanges disjoin + mean
-    all_gr <- do.call(c, bgs)
-    dj     <- disjoin(all_gr)
+  if (length(bgs) == 1) {
+    merged <- bgs[[1]]
+  } else {
+    dj <- disjoin(do.call(c, bgs))
     scores <- sapply(bgs, function(bg) {
       ov <- findOverlaps(dj, bg)
       s  <- rep(0, length(dj))
       s[queryHits(ov)] <- bg$score[subjectHits(ov)]
       s
     })
-    dj$score <- if (is.matrix(scores)) rowMeans(scores) else mean(scores)
-
-    out <- file.path(opt$outdir, paste0(cond, sfx, "_merged.bedGraph"))
-    export(dj, con=out, format="bedGraph")
-    message("[merge_bedgraph_replicates.R] ", basename(out))
+    dj$score <- rowMeans(scores)
+    merged   <- dj
   }
+
+  out <- file.path(opt$outdir, paste0(opt$condition, sfx, "_merged.bedGraph"))
+  export(merged, con = out, format = "bedGraph")
+  message("  Written: ", basename(out))
 }
+
 writeLines(capture.output(sessionInfo()),
-           file.path(opt$outdir,"merge_bedgraph_sessionInfo.txt"))
-message("[merge_bedgraph_replicates.R] Done.")
+           file.path(opt$outdir,
+                     paste0(opt$condition, "_merge_bedgraph_sessionInfo.txt")))
+message("[merge_bedgraph_replicates.R] Done: ", opt$condition)
