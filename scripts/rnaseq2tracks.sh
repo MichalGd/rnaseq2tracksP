@@ -224,7 +224,7 @@ wait_all
 # ── Step 10b: Strand consistency (always runs — fast safety check) ────────────
 log "STEP 10b — Strand consistency check"
 "$REPO/scripts/check_strand_consistency.sh" \
-  "$SAMPLESHEET" "$OUTDIR/bams" "$LIBRARY_LAYOUT" "${STRAND_TOLERANCE_PCT:-5}"
+  "$SAMPLESHEET" "$OUTDIR/bams" "$LIBRARY_LAYOUT" "${STRAND_TOLERANCE_PCT:-5}" "${MAX_JOBS:-8}"
 
 # ── Step 10c: RSeQC — background (steps 11-18 run in parallel) ─────────────
 _s10c_sentinel="$OUTDIR/07_qc/rseqc/infer_experiment/${SID[0]}_infer_experiment.txt"
