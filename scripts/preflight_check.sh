@@ -23,7 +23,8 @@ section "3. R packages"
 RSCRIPT="${RSCRIPT_BIN:-Rscript}"
 for pkg in DESeq2 apeglm Rsamtools GenomicAlignments rtracklayer \
            GenomicFeatures txdbmaker GenomicRanges vsn pheatmap RColorBrewer \
-           ggplot2 data.table optparse knitr kableExtra rmarkdown ashr; do
+           ggplot2 data.table optparse knitr kableExtra rmarkdown ashr \
+           clusterProfiler enrichplot ReactomePA fgsea msigdbr; do
   "$RSCRIPT" -e "library($pkg,quietly=TRUE)" 2>/dev/null \
     && ok "R: $pkg" || fail "R pkg missing: $pkg"
 done

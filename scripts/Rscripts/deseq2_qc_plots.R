@@ -11,6 +11,11 @@ option_list <- list(
   make_option("--outdir")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
+
+save_dual <- function(p, path_pdf, w=7, h=6) {
+  ggsave(path_pdf, p, width=w, height=h)
+  ggsave(sub("\\.pdf$", ".png", path_pdf), p, width=w, height=h, dpi=300)
+}
 load(opt$countsrdata)
 dir.create(opt$outdir, recursive=TRUE, showWarnings=FALSE)
 dds <- estimateSizeFactors(dds)

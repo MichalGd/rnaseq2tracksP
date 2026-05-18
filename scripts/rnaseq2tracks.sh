@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# rnaseq2tracks.sh — master orchestrator (v4.2 — parallel R steps)
+# rnaseq2tracks.sh — master orchestrator (v4.3 — enrichment analysis)
 # =============================================================================
 # v4.2 changes vs v4.1:
 #   Step 10 — bam_to_bedgraph.R:          1 R job per sample (parallel)
@@ -416,4 +416,23 @@ else
   " || log "WARNING: pipeline report failed — check pandoc"
 fi
 
-log "rnaseq2tracks v4.2 complete.  Results: $OUTDIR"
+
+# ── Step 21: Gene enrichment analysis (ORA + GSEA) ───────────────────────────
+if done_check "$OUTDIR/analysis/enrichment/.enrichment_done"; then
+  skip "STEP 21 — Enrichment analysis"
+else
+  log "STEP 21 — Enrichment analysis (ORA + GSEA)"
+  "${RSCRIPT_BIN:-Rscript}" "$REPO/scripts/Rscripts/deseq2_enrichment.R" \
+    --dedir     "$OUTDIR/analysis/DE" \
+    --contrasts "$(realpath "${CONTRASTS}")" \
+    --outdir    "$OUTDIR/analysis/enrichment" \
+    --species   "$SPECIES" \
+    --padj      "${PADJ_THRESHOLD:-0.05}" \
+    --lfc       "${LFC_THRESHOLD:-1}" \
+    --minGS     "${ENRICHMENT_MINGS:-10}" \
+    --maxGS     "${ENRICHMENT_MAXGS:-500}" \
+    && touch "$OUTDIR/analysis/enrichment/.enrichment_done" \
+    || log "WARNING: enrichment analysis failed — check deseq2_enrichment.R"
+fi
+
+log "rnaseq2tracks v4.3 complete.  Results: $OUTDIR"

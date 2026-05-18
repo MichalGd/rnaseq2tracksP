@@ -81,8 +81,18 @@ GTF="$_GTF" \
   --countsrdata "${COUNTS_R12}/dds.RData" \
   --contrasts   "$(realpath "${CONTRASTS}")" \
   --outdir      "${DE_R12}" \
+  --gtf         "$_GTF" \
   --padj        "${PADJ_THRESHOLD:-0.05}" \
   --lfc         "${LFC_THRESHOLD:-1}"
+
+log "Step 4 — Enrichment analysis (ORA + GSEA)..."
+"$RSCRIPT" "$REPO/scripts/Rscripts/deseq2_enrichment.R" \
+  --dedir     "${DE_R12}" \
+  --contrasts "$(realpath "${CONTRASTS}")" \
+  --outdir    "${OUTDIR_R12}/enrichment" \
+  --species   "${SPECIES:-mouse}" \
+  --padj      "${ENRICHMENT_PADJ:-0.05}" \
+  --lfc       "${ENRICHMENT_LFC:-0}"
 
 log "Done. All rep1+2 outputs in: ${OUTDIR_R12}/"
 echo ""

@@ -1,11 +1,13 @@
 # =============================================================================
-# deseq2_de.R — Wald test + apeglm LFC shrinkage per contrast
-# ORIGIN: ADAPTED — from RNA-seq repo DE analysis scripts
-# CHANGES v4.1:
+# deseq2_de.R - Wald test + apeglm LFC shrinkage per contrast
+# ORIGIN: ADAPTED - from RNA-seq repo DE analysis scripts
+# CHANGES v4.2:
 #   - res_raw   : unshrunken results() for raw volcano/MA plots
 #   - res_shrunk: lfcShrink(apeglm) for reported TSV and shrunken plots
 #   - Volcano Y-axis: -log10(padj) so colour tier and reference line match exactly
-#   - Four plot PDFs per contrast: _volcano_raw, _volcano_shrunk, _MA_raw, _MA_shrunk
+#   - make_volcano: padj=NA->1 so independently-filtered genes plot at y=0
+#   - make_volcano: xlim/ylim + coord_cartesian for clipped versions
+#   - Six volcano PDFs: _raw, _shrunk, _raw_clipped, _shrunk_clipped + MA pair
 # =============================================================================
 suppressPackageStartupMessages({
   library(optparse); library(DESeq2); library(apeglm)
@@ -16,7 +18,8 @@ option_list <- list(
   make_option("--contrasts"),
   make_option("--outdir"),
   make_option("--padj", default="0.05"),
-  make_option("--lfc",  default="1")
+  make_option("--lfc",  default="1"),
+  make_option("--gtf",  default="")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
 load(opt$countsrdata)
@@ -38,12 +41,21 @@ classify_sig <- function(padj_vec) {
   factor(tier, levels=c("ns","trend","sig"))
 }
 
-# ── Plot builders ─────────────────────────────────────────────────────────────
+# -- Plot builders -------------------------------------------------------------
 # Y-axis is -log10(padj): colour tier and horizontal reference line are identical cutoffs
 
-make_volcano <- function(df, cid, lfc_thr, label_suffix) {
+# Save plot as both PDF and PNG
+save_dual <- function(p, path_pdf, w=7, h=5) {
+  ggsave(path_pdf, p, width=w, height=h)
+  ggsave(sub("[.]pdf$", ".png", path_pdf), p, width=w, height=h, dpi=300)
+}
+
+make_volcano <- function(df, cid, lfc_thr, label_suffix,
+                         xlim=NULL, ylim=NULL) {
   df <- df[order(df$sig_tier), ]
-  ggplot(df, aes(log2FoldChange, -log10(padj), color=sig_tier)) +
+  # padj=NA (DESeq2 independent filtering) -> substitute 1 so genes plot at y=0
+  df$padj_plot <- ifelse(is.na(df$padj), 1, df$padj)
+  p <- ggplot(df, aes(log2FoldChange, -log10(padj_plot), color=sig_tier)) +
     geom_point(alpha=0.5, size=0.8) +
     scale_color_manual(values=sig_colors, labels=sig_labels, name="Significance") +
     geom_vline(xintercept=c(-lfc_thr, lfc_thr), linetype="dashed",
@@ -53,6 +65,9 @@ make_volcano <- function(df, cid, lfc_thr, label_suffix) {
     labs(title=paste0(cid, "  [", label_suffix, "]"),
          x="log2 Fold Change", y="-log10(adj. p-value)") +
     theme_bw() + theme(legend.position="right")
+  if (!is.null(xlim) || !is.null(ylim))
+    p <- p + coord_cartesian(xlim=xlim, ylim=ylim)
+  p
 }
 
 make_ma <- function(df, cid, lfc_thr, label_suffix) {
@@ -69,7 +84,7 @@ make_ma <- function(df, cid, lfc_thr, label_suffix) {
     theme_bw() + theme(legend.position="right")
 }
 
-# ── Per-contrast loop ─────────────────────────────────────────────────────────
+# -- Per-contrast loop ---------------------------------------------------------
 for (i in seq_len(nrow(contrasts))) {
   cid <- contrasts$contrast_id[i]
   num <- contrasts$numerator[i]
@@ -77,14 +92,14 @@ for (i in seq_len(nrow(contrasts))) {
   message("[deseq2_de.R] contrast: ", cid, "  (", num, " vs ", den, ")")
   coef <- paste0("condition_", num, "_vs_", den)
 
-  # 1. Unshrunken Wald results — proper p-value distribution for plots
+  # 1. Unshrunken Wald results - proper p-value distribution for plots
   res_raw <- tryCatch(
     results(dds, contrast=c("condition", num, den), independentFiltering=TRUE),
     error=function(e) { message("results() failed: ", conditionMessage(e)); NULL }
   )
   if (is.null(res_raw)) { message("Skipping ", cid); next }
 
-  # 2. Shrunken LFC (apeglm → ashr fallback) — canonical reported values
+  # 2. Shrunken LFC (apeglm - ashr fallback) - canonical reported values
   res_shrunk <- tryCatch(
     lfcShrink(dds, coef=coef, type="apeglm"),
     error=function(e) {
@@ -92,7 +107,7 @@ for (i in seq_len(nrow(contrasts))) {
       tryCatch(
         lfcShrink(dds, contrast=c("condition",num,den), type="ashr"),
         error=function(e2) {
-          message("ashr also failed: ", conditionMessage(e2), " — using raw")
+          message("ashr also failed: ", conditionMessage(e2), " - using raw")
           res_raw
         }
       )
@@ -108,7 +123,7 @@ for (i in seq_len(nrow(contrasts))) {
   df_shrunk$gene     <- rownames(df_shrunk)
   df_shrunk$sig_tier <- classify_sig(df_shrunk$padj)
 
-  # ── TSV outputs (shrunken LFC is the canonical reported value) ───────────────
+  # -- TSV outputs (shrunken LFC is the canonical reported value) ---------------
   fwrite(df_shrunk[order(df_shrunk$padj, na.last=TRUE), ],
          file.path(opt$outdir, paste0(cid, "_DE_results.tsv")), sep="\t")
 
@@ -116,13 +131,19 @@ for (i in seq_len(nrow(contrasts))) {
                      abs(df_shrunk$log2FoldChange) > lfc_thr, ]
   fwrite(sig, file.path(opt$outdir, paste0(cid, "_significant.tsv")), sep="\t")
 
-  # ── Volcano plots ─────────────────────────────────────────────────────────────
+  # -- Volcano plots -------------------------------------------------------------
   ggsave(file.path(opt$outdir, paste0(cid, "_volcano_raw.pdf")),
          make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC"), width=7, height=5)
   ggsave(file.path(opt$outdir, paste0(cid, "_volcano_shrunk.pdf")),
          make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC"),   width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_raw_clipped.pdf")),
+         make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC, clipped",
+                      xlim=c(-4,4), ylim=c(0,25)), width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_shrunk_clipped.pdf")),
+         make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC, clipped",
+                      xlim=c(-4,4), ylim=c(0,25)), width=7, height=5)
 
-  # ── MA plots ──────────────────────────────────────────────────────────────────
+  # -- MA plots ------------------------------------------------------------------
   ggsave(file.path(opt$outdir, paste0(cid, "_MA_raw.pdf")),
          make_ma(df_raw,    cid, lfc_thr, "unshrunken LFC"), width=7, height=5)
   ggsave(file.path(opt$outdir, paste0(cid, "_MA_shrunk.pdf")),
@@ -142,11 +163,12 @@ message("[deseq2_de.R] Building annotated count tables...")
 
 counts_dir <- dirname(opt$countsrdata)
 gtf_path   <- Sys.getenv("GTF")
+if (gtf_path == "") gtf_path <- opt$gtf   # --gtf CLI arg fallback
 tables_dir <- file.path(dirname(opt$outdir), "tables")
 dir.create(tables_dir, recursive=TRUE, showWarnings=FALSE)
 
 if (gtf_path == "" || !file.exists(gtf_path)) {
-  message("[deseq2_de.R] [WARN] GTF not found via $GTF env var — skipping annotated tables")
+  message("[deseq2_de.R] [WARN] GTF not found via $GTF env var - skipping annotated tables")
 } else {
   gtf_dt <- fread(cmd=paste("grep -v '^#'", gtf_path),
                   sep="\t", header=FALSE, quote="",
@@ -158,7 +180,7 @@ if (gtf_path == "" || !file.exists(gtf_path)) {
     sub(paste0(key, ' "'), "", m)
   }
   genes_ann <- data.table(
-    gene_id      = sub("\\.[0-9]+$", "", extract_attr(gtf_dt$attributes, "gene_id")),
+    gene_id      = sub("[.][0-9]+$", "", extract_attr(gtf_dt$attributes, "gene_id")),
     gene_id_full = extract_attr(gtf_dt$attributes, "gene_id"),
     gene_name    = ifelse(grepl('gene_name "', gtf_dt$attributes),
                           extract_attr(gtf_dt$attributes, "gene_name"), NA_character_),
@@ -169,9 +191,9 @@ if (gtf_path == "" || !file.exists(gtf_path)) {
   genes_ann[, protein_coding := gene_type == "protein_coding"]
 
   raw  <- fread(file.path(counts_dir, "raw_counts.tsv"))
-  setnames(raw,  "gene", "gene_id_full"); raw[,  gene_id := sub("\\.[0-9]+$","",gene_id_full)]
+  setnames(raw,  "gene", "gene_id_full"); raw[,  gene_id := sub("[.][0-9]+$","",gene_id_full)]
   norm <- fread(file.path(counts_dir, "normalized_counts.tsv"))
-  setnames(norm, "gene", "gene_id_full"); norm[, gene_id := sub("\\.[0-9]+$","",gene_id_full)]
+  setnames(norm, "gene", "gene_id_full"); norm[, gene_id := sub("[.][0-9]+$","",gene_id_full)]
   raw_scols  <- setdiff(names(raw),  c("gene_id_full","gene_id"))
   norm_scols <- setdiff(names(norm), c("gene_id_full","gene_id"))
   setnames(raw,  raw_scols,  paste0("raw_",  raw_scols))
@@ -189,7 +211,7 @@ if (gtf_path == "" || !file.exists(gtf_path)) {
     de_file <- file.path(opt$outdir, paste0(cid, "_DE_results.tsv"))
     if (!file.exists(de_file)) next
     de <- fread(de_file)
-    de[, gene_id := sub("\\.[0-9]+$", "", gene)]
+    de[, gene_id := sub("[.][0-9]+$", "", gene)]
     de_cols <- intersect(c("gene_id","baseMean","log2FoldChange","lfcSE","pvalue","padj"), names(de))
     de_sub  <- de[, de_cols, with=FALSE]
     setnames(de_sub, setdiff(de_cols,"gene_id"),
