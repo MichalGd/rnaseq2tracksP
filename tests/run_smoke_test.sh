@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ORIGIN: NEW v3 / UPDATED v4 — 7 pre-run checks including RSeQC
+# ORIGIN: NEW v3 / UPDATED v5 — adds enrichment R package checks
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="${1:-$REPO/config/config.conf}"
@@ -14,24 +14,30 @@ while IFS= read -r -d '' f; do
   bash -n "$f" 2>/dev/null && ok "$(basename "$f")" || fail "$(basename "$f")"
 done < <(find "$REPO/scripts" -name "*.sh" -print0)
 
-section "2. R packages"
-for pkg in DESeq2 apeglm Rsamtools GenomicAlignments rtracklayer \
+section "2. R packages — core"
+for pkg in DESeq2 apeglm ashr Rsamtools GenomicAlignments rtracklayer \
            GenomicFeatures GenomicRanges vsn pheatmap RColorBrewer \
            ggplot2 data.table optparse knitr kableExtra rmarkdown; do
   Rscript -e "library($pkg,quietly=TRUE)" 2>/dev/null && ok "R: $pkg" || fail "R: $pkg"
 done
 
-section "3. Core tools"
+section "3. R packages — enrichment"
+for pkg in clusterProfiler enrichplot ReactomePA fgsea msigdbr \
+           org.Hs.eg.db org.Mm.eg.db; do
+  Rscript -e "library($pkg,quietly=TRUE)" 2>/dev/null && ok "R: $pkg" || warn "R: $pkg not found (required for Step 21)"
+done
+
+section "4. Core tools"
 for t in STAR samtools bedtools fastqc trim_galore multiqc Rscript; do
   command -v "$t" &>/dev/null && ok "$t" || warn "$t not found"
 done
 
-section "4. Kent utils"
+section "5. Kent utils"
 [[ -f "$CONFIG" ]] && source "$CONFIG" 2>/dev/null || true
 [[ -x "${KENTUTILS_DIR:-}/bedGraphToBigWig" ]] \
   && ok "bedGraphToBigWig" || warn "bedGraphToBigWig not found"
 
-section "5. RSeQC"
+section "6. RSeQC"
 RSEQC_DIR="${RSEQC_BIN_DIR:-}"
 for py in infer_experiment.py read_distribution.py geneBody_coverage.py \
           junction_annotation.py junction_saturation.py; do
@@ -40,10 +46,11 @@ for py in infer_experiment.py read_distribution.py geneBody_coverage.py \
   else warn "RSeQC: $py not found"; fi
 done
 
-section "6. Config"
+section "7. Config"
 if [[ -f "$CONFIG" ]]; then
   for v in SPECIES LIBRARY_LAYOUT SAMPLESHEET OUTDIR RUN_RSEQC \
-            REGULAR_CHROMS_ONLY CHROMOSOME_NAMING STRAND_TOLERANCE_PCT; do
+            REGULAR_CHROMS_ONLY CHROMOSOME_NAMING STRAND_TOLERANCE_PCT \
+            PADJ_THRESHOLD LFC_THRESHOLD; do
     [[ -n "${!v:-}" ]] && ok "$v=${!v}" || warn "$v empty"
   done
   case "${SPECIES:-}" in
@@ -55,12 +62,19 @@ if [[ -f "$CONFIG" ]]; then
   esac
 else warn "config.conf not found at $CONFIG"; fi
 
-section "7. Samplesheet"
+section "8. Samplesheet"
 SS="${SAMPLESHEET:-$REPO/config/samplesheet.csv}"
 if [[ -f "$SS" ]]; then
   N=$(grep -vc '^[[:space:]]*#\|^sample_id' "$SS" || true)
   ok "$N data rows in $SS"
 else warn "Samplesheet not found: $SS"; fi
+
+section "9. Contrasts"
+CF="${CONTRASTS:-$REPO/config/contrasts.csv}"
+if [[ -f "$CF" ]]; then
+  NC=$(grep -vc '^[[:space:]]*#\|^contrast_id' "$CF" || true)
+  ok "$NC contrasts in $CF"
+else warn "Contrasts file not found: $CF (Step 16 and 21 will be skipped)"; fi
 
 echo ""; echo "════════════════════════════════════════"
 echo "Smoke test: $PASS passed  $FAIL failed  $WARN warnings"

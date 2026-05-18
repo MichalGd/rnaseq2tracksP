@@ -1,4 +1,4 @@
-# rnaseq2tracks v4.0 — file tree
+# rnaseq2tracks v5.0 — file tree
 
 ./.gitattributes
 ./.gitignore
@@ -27,6 +27,7 @@
 ./examples/ucsc_tracks_example.txt
 ./scripts/Rscripts/bam_to_bedgraph.R
 ./scripts/Rscripts/deseq2_de.R
+./scripts/Rscripts/deseq2_enrichment.R
 ./scripts/Rscripts/deseq2_normalize.R
 ./scripts/Rscripts/deseq2_qc_plots.R
 ./scripts/Rscripts/merge_bedgraph_replicates.R
@@ -38,6 +39,7 @@
 ./scripts/create_ucsc_tracks.sh
 ./scripts/norm_bedgraph_to_bigwig.sh
 ./scripts/preflight_check.sh
+./scripts/rerun_deseq_rep12.sh
 ./scripts/rnaseq2tracks.sh
 ./scripts/run_rnaseq_qc.sh
 ./scripts/star_PE_single.sh

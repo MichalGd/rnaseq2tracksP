@@ -1,2 +1,4 @@
 contrast_id,numerator,denominator
 KO_vs_WT,KO,WT
+rescue_vs_WT,rescue,WT
+KO_vs_rescue,KO,rescue
