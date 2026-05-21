@@ -57,7 +57,7 @@ if (strand_ == "unstranded") {
       bf, param = ScanBamParam(flag = scanBamFlag(isSecondaryAlignment = FALSE)))
   }
   out <- file.path(outdir, paste0(sid, "_unstranded.bedGraph"))
-  write_bg(unlist(grglist(reads)), out)
+  write_bg(granges(reads), out)
 
 } else {
   # Strand assignment for dUTP (reverse) and forward libraries
@@ -89,7 +89,7 @@ if (strand_ == "unstranded") {
       }
       r1 <- readGAlignments(bf, param = ScanBamParam(flag = f1))
       r2 <- readGAlignments(bf, param = ScanBamParam(flag = f2))
-      reads_gr <- c(unlist(grglist(r1)), unlist(grglist(r2)))
+      reads_gr <- c(granges(r1), granges(r2))
     strand(reads_gr) <- if (sg == "Fwd") "+" else "-"
     } else {
       # SE
@@ -104,8 +104,7 @@ if (strand_ == "unstranded") {
         else
           scanBamFlag(isSecondaryAlignment = FALSE, isMinusStrand = TRUE)
       }
-      reads_ga_se <- readGAlignments(bf, param = ScanBamParam(flag = fl))
-    reads_gr <- unlist(grglist(reads_ga_se))
+      reads_gr <- granges(readGAlignments(bf, param = ScanBamParam(flag = fl)))
     }
 
     # Negate scores for reverse strand (UCSC convention for BigWig tracks)
