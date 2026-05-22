@@ -16,6 +16,7 @@ CONFIG="$(realpath "$1")"
 [[ -f "$CONFIG" ]] || { echo "ERROR: config not found: $CONFIG" >&2; exit 1; }
 source "$CONFIG"
 SAMPLESHEET="$(realpath "${SAMPLESHEET}")"
+[[ -n "${CONTRASTS:-}" ]] && CONTRASTS="$(realpath "${CONTRASTS}")"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 skip() { log "SKIP — $* (output exists; set FORCE_RERUN=1 to rerun)"; }
@@ -402,8 +403,11 @@ else
   log "STEP 20 — Pipeline report"
   "${RSCRIPT_BIN:-Rscript}" -e "
     rmarkdown::render(
-      '$REPO/scripts/Rscripts/pipeline_report.Rmd',
-      output_file = '$OUTDIR/reports/pipeline_report.html',
+      input             = '$REPO/scripts/Rscripts/pipeline_report.Rmd',
+      output_file       = 'pipeline_report.html',
+      output_dir        = '$OUTDIR/reports',
+      intermediates_dir = '$OUTDIR/reports',
+      knit_root_dir     = '$OUTDIR',
       params = list(
         outdir      = '$OUTDIR',
         config      = '$CONFIG',

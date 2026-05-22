@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
 # ORIGIN: NEW v4.0 — preflight dependency and file check
 set -euo pipefail
-CONFIG="$1"; source "$CONFIG"
+CONFIG="$1"
+
+# ── Sanitize CRLF before sourcing ─────────────────────────────────────────────
+_sanitize_crlf() {
+    local file="$1" label="$2"
+    [[ -f "$file" ]] || return
+    if grep -qP '\r' "$file" 2>/dev/null; then
+        echo "  [FIX ] CRLF detected in $label — stripping \\r: $file"
+        sed -i 's/\r//' "$file"
+    fi
+}
+_sanitize_crlf "$CONFIG" "config"
+# SAMPLESHEET and CONTRASTS are sourced from config, so source first then sanitize
+source "$CONFIG"
+[[ -n "${SAMPLESHEET:-}" ]] && _sanitize_crlf "$SAMPLESHEET" "samplesheet"
+[[ -n "${CONTRASTS:-}"   ]] && _sanitize_crlf "$CONTRASTS"   "contrasts"
+
 FAIL=0; WARN=0
 fail() { echo "  [FAIL] $*" >&2; FAIL=$((FAIL+1)); }
 warn() { echo "  [WARN] $*"; WARN=$((WARN+1)); }
@@ -58,11 +74,52 @@ esac
 [[ -f "$CS"  ]] && ok "chrom.sizes: $CS" || fail "chrom.sizes missing: $CS"
 
 section "7. Samplesheet"
+[[ "${SAMPLESHEET:-}" != /* ]] && warn "SAMPLESHEET is a relative path — use absolute paths in config"
+[[ "${CONTRASTS:-}"   != /* ]] && warn "CONTRASTS is a relative path — use absolute paths in config"
 SS="${SAMPLESHEET:-config/samplesheet.csv}"
 if [[ -f "$SS" ]]; then
   N=$(grep -vc '^[[:space:]]*#\|^sample_id' "$SS" || true)
   ok "Samplesheet: $N samples"
 else fail "Samplesheet not found: $SS"; fi
+
+section "8. Input file format"
+# Required columns
+_check_header() {
+    local file="$1" label="$2"; shift 2
+    [[ -f "$file" ]] || { fail "$label not found: $file"; return; }
+    local hdr; hdr=$(head -1 "$file")
+    local col; for col in "$@"; do
+        echo "$hdr" | grep -qF "$col" || fail "$label missing column: '$col'"
+    done
+    echo "$hdr" | grep -qF "$1" && ok "$label columns OK"
+}
+_check_header "${SAMPLESHEET:-}" "samplesheet" \
+    sample_id fastq_R1 condition replicate strandedness
+[[ -n "${CONTRASTS:-}" ]] && _check_header "${CONTRASTS:-}" "contrasts" \
+    contrast_id numerator denominator
+
+# Contrast levels must exist in samplesheet conditions
+if [[ -n "${CONTRASTS:-}" && -f "${CONTRASTS:-}" && -f "${SAMPLESHEET:-}" ]]; then
+    python3 - <<PYCHECK
+import csv, sys
+conds = set()
+with open("${SAMPLESHEET}") as f:
+    for r in csv.DictReader(f): conds.add(r["condition"].strip())
+errs = []
+with open("${CONTRASTS}") as f:
+    for r in csv.DictReader(f):
+        for side in ("numerator","denominator"):
+            v = r[side].strip()
+            if v not in conds:
+                errs.append(f"contrast '{r['contrast_id']}': {side} '{v}' not in samplesheet")
+if errs:
+    for e in errs: print(f"  [FAIL] {e}")
+    sys.exit(1)
+else:
+    print("  [ OK ] All contrast levels match samplesheet conditions")
+PYCHECK
+    [[ $? -ne 0 ]] && FAIL=$((FAIL+1))
+fi
 
 echo ""
 echo "════════════════════════════════════════"
