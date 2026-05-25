@@ -275,8 +275,9 @@ See `docs/INSTALLATION.md` for detailed setup instructions.
 | `docs/WORKFLOW.md` | Step-by-step pipeline description |
 | `docs/RSEQC.md` | RSeQC module documentation and metric interpretation |
 | `docs/SCRIPTS.md` | Description of all scripts and R modules |
-| Gene set enrichment analysis (ORA, GSEA, Hallmarks) | [docs/gene_set_enrichment.md](docs/gene_set_enrichment.md) |
-| Statistical thresholds (DEG and GSEA) | [docs/THRESHOLDS.md](docs/THRESHOLDS.md) |
+| [docs/gene_set_enrichment.md](docs/gene_set_enrichment.md) | Gene set enrichment analysis (ORA, GSEA, Hallmarks) |
+| [docs/THRESHOLDS.md](docs/THRESHOLDS.md) | Statistical thresholds (DEG and GSEA) |
+
 ---
 
 
