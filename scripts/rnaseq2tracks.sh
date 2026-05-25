@@ -338,12 +338,12 @@ _n16=$(find "$OUTDIR/analysis/DE" -name "*_DE_results.tsv" 2>/dev/null | wc -l)
 if [[ "$_n16" -gt 0 ]] && [[ "$FORCE_RERUN" != "1" ]]; then
   skip "STEP 16 — DESeq2 DE"
 else
-  if [[ -f "${CONTRASTS_FILE:-$REPO/config/contrasts.csv}" ]]; then
+  if [[ -f "${CONTRASTS:-$REPO/config/contrasts.csv}" ]]; then
     export GTF
   log "STEP 16 — DESeq2 DE"
     "${RSCRIPT_BIN:-Rscript}" "$REPO/scripts/Rscripts/deseq2_de.R" \
       --countsrdata "$OUTDIR/analysis/counts/dds.RData" \
-      --contrasts "${CONTRASTS_FILE:-$REPO/config/contrasts.csv}" \
+      --contrasts "${CONTRASTS:-$REPO/config/contrasts.csv}" \
       --outdir "$OUTDIR/analysis/DE" \
       --padj "${DE_PADJ_THRESHOLD:-0.05}" --lfc "${DE_LFC_THRESHOLD:-1}"
   else

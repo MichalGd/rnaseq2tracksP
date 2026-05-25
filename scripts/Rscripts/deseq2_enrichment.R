@@ -199,7 +199,7 @@ for (i in seq_len(nrow(contrasts))) {
       enrichGO(gene=sig_genes, universe=bg_genes, OrgDb=orgdb,
                ont="BP", keyType="ENTREZID",
                minGSSize=opt$minGS, maxGSSize=opt$maxGS,
-               pAdjustMethod="BH", pvalueCutoff=0.25, qvalueCutoff=0.2,
+               pAdjustMethod="BH", pvalueCutoff=0.05, qvalueCutoff=0.2,
                readable=TRUE),
       error=function(e) { message("    GO BP ORA error: ", conditionMessage(e)); NULL }
     )
