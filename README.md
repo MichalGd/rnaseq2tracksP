@@ -278,6 +278,18 @@ See `docs/INSTALLATION.md` for detailed setup instructions.
 
 ---
 
+## Statistical thresholds & gene set enrichment
+
+- [Statistical thresholds: DEG and gene set enrichment](docs/THRESHOLDS.md) — explains the p-value, adjusted p-value/FDR, q-value, log2 fold-change, gene-set size, and other thresholds used in differential expression and enrichment analysis.
+
+| Topic | File |
+|-------|------|
+| Gene set enrichment analysis (ORA, GSEA, Hallmarks) | [docs/gene_set_enrichment.md](docs/gene_set_enrichment.md) |
+| Statistical thresholds (DEG and GSEA) | [docs/THRESHOLDS.md](docs/THRESHOLDS.md) |
+
+---
+
+
 ## Citation
 
 If you use this pipeline, please cite:
