@@ -4,8 +4,8 @@
 
 | Script | Language | Origin | Change in v5 |
 |--------|----------|--------|--------------|
-| `rnaseq2tracks.sh` | Bash | NEW v1 | Step 2b (FastQ Screen) and Step 21 (enrichment) added; version v5 |
-| `preflight_check.sh` | Bash | NEW v4 | FastQ Screen conf + bowtie2 index validation added |
+| `rnaseq2tracks.sh` | Bash | NEW v1 | Step 21 (enrichment) added; version v4.3 |
+| `preflight_check.sh` | Bash | NEW v4 | — |
 | `run_rnaseq_qc.sh` | Bash | ADAPTED v4 | — |
 | `collect_star_qc.sh` | Bash | NEW v4 | — |
 | `check_strand_consistency.sh` | Bash | NEW v4 | — |
@@ -25,41 +25,7 @@
 | `Rscripts/merge_bedgraph_replicates.R` | R | ADAPTED v1 | — |
 | `Rscripts/pipeline_report.Rmd` | R Markdown | NEW v1 | — |
 | `tests/check_bash_syntax.sh` | Bash | VERBATIM | — |
-| `tests/run_smoke_test.sh` | Bash | NEW v3→v5 | Added enrichment R package checks (section 3), FastQ Screen conf check (section 10), contrasts file check (section 9) |
-
----
-
-## preflight_check.sh — FastQ Screen additions (v5)
-
-The preflight check validates FastQ Screen configuration before the run starts. Validation is **non-fatal** — missing `fastq_screen` or conf file triggers a warning and Step 2b is skipped gracefully at runtime.
-
-Checks added in v5:
-1. `fastq_screen` present in PATH — logs version if found
-2. `FASTQSCREEN_CONF` file exists
-3. Each `DATABASE` entry in the conf resolves to a valid bowtie2 index (`.1.bt2` or `.1.bt2l` present)
-
-```bash
-# Example preflight output for a configured installation
-OK  fastq_screen: FastQ Screen v0.15.3
-OK  fastq_screen.conf: config/fastq_screen.conf
-OK  bowtie2 index: /data/fastq_screen_db/mouse/mouse
-OK  bowtie2 index: /data/fastq_screen_db/human/human
-OK  bowtie2 index: /data/fastq_screen_db/zebrafish/zebrafish
-OK  bowtie2 index: /data/fastq_screen_db/drosophila/drosophila
-OK  bowtie2 index: /data/fastq_screen_db/mycoplasma/mycoplasma
-```
-
----
-
-## rnaseq2tracks.sh — Step 2b (FastQ Screen)
-
-Step 2b is inserted between Step 3 (MultiQC raw) and Step 4 (TrimGalore). It screens raw reads before trimming so that contamination is detected on unmodified input data.
-
-**Sentinel:** `fastQScreen/<first_sample>_screen.html` — if this file exists and `FORCE_RERUN` is not set, the step is skipped.
-
-**Parallelism:** one `fastq_screen` job is submitted per sample (R1 only for PE) using the existing `submit`/`waitall` job-throttle. Thread count per job is controlled by `FASTQSCREEN_THREADS`.
-
-**MultiQC integration:** `fastQScreen/` is included in the `MQCSOURCES` list for Step 19. MultiQC auto-detects `*_screen.txt` files and renders a stacked bar chart panel in `multiQC_final.html`.
+| `tests/run_smoke_test.sh` | Bash | NEW v3→v5 | Added enrichment R package checks (section 3), contrasts file check (section 9) |
 
 ---
 

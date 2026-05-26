@@ -5,7 +5,7 @@
     <img src="https://img.shields.io/badge/version-5.0-blue"/>
     <img src="https://img.shields.io/badge/language-Bash%20%7C%20R-informational"/>
     <img src="https://img.shields.io/badge/aligner-STAR-green"/>
-    <img src="https://img.shields.io/badge/QC-FastQ%20Screen%20%7C%20RSeQC-orange"/>
+    <img src="https://img.shields.io/badge/QC-RSeQC-orange"/>
     <img src="https://img.shields.io/badge/DE-DESeq2-red"/>
     <img src="https://img.shields.io/badge/enrichment-ORA%20%7C%20GSEA-purple"/>
     <img src="https://img.shields.io/badge/layout-SE%20%7C%20PE-orange"/>
@@ -21,21 +21,19 @@
 ```mermaid
 flowchart TD
     A([📁 Raw FASTQ\nSE or PE]) --> B[Step 0: preflight_check.sh\ntools · R pkgs · RSeQC · genome files]
-    B --> C[Step 2: FastQC raw]
-    C --> D[Step 3: MultiQC raw]
-    A --> FQS[🧫 Step 2b: FastQ Screen\nspecies swap · mycoplasma\nMouse · Human · Zebrafish\nDrosophila · Mycoplasma]
-    FQS --> E[Step 4: TrimGalore]
-    D --> E
-    E --> F[Step 5: FastQC trimmed]
-    F --> G[Step 6: MultiQC trimmed]
-    E --> H[Step 7: STAR\n--quantMode GeneCounts]
-    H --> I[Step 8: samtools\nsort + index]
-    H --> J[Step 9: MultiQC\nalignment logs]
-    H --> K[Step 9b: collect_star_qc.sh\nSTAR summary TSV]
+    B --> C[FastQC raw]
+    C --> D[MultiQC raw]
+    A --> E[TrimGalore]
+    E --> F[FastQC trimmed]
+    F --> G[MultiQC trimmed]
+    E --> H[STAR\n--quantMode GeneCounts]
+    H --> I[samtools\nsort + index]
+    H --> J[MultiQC\nalignment logs]
+    H --> K[collect_star_qc.sh\nSTAR summary TSV]
 
-    I --> L[⭐ Step 11: bam_to_bedgraph.R\nRsamtools + GenomicAlignments]
-    I --> M[⚙️ Step 10b: check_strand_consistency.sh\nFwd+Rev vs Total]
-    I --> N[🔬 Step 10c: run_rnaseq_qc.sh\ninfer_experiment · read_distribution\njunction_annotation · junction_saturation\ngeneBody_coverage]
+    I --> L[⭐ bam_to_bedgraph.R\nRsamtools + GenomicAlignments]
+    I --> M[⚙️ check_strand_consistency.sh\nFwd+Rev vs Total]
+    I --> N[🔬 run_rnaseq_qc.sh\ninfer_experiment · read_distribution\njunction_annotation · junction_saturation\ngeneBody_coverage]
     K --> O[07_qc/star/]
     N --> P[07_qc/rseqc/]
     O --> Q[MultiQC RSeQC\n07_qc/multiqc/]
@@ -52,13 +50,11 @@ flowchart TD
     T --> Y[UCSC tracks]
     W --> EA[⭐ deseq2_enrichment.R\nORA + GSEA\nGO · KEGG · Reactome · MSigDB Hallmarks]
     EA --> Z([📊 Reports\nHTML · BigWigs · DE tables · enrichment plots])
-    FQS --> Z
     X --> Z; Y --> Z; Q --> Z
 
     style A fill:#4a90d9,color:#fff
     style Z fill:#27ae60,color:#fff
     style B fill:#ffe0e0,stroke:#cc0000
-    style FQS fill:#fff0e6,stroke:#e07000
     style M fill:#ffe0e0,stroke:#cc0000
     style N fill:#e8f4ff,stroke:#0066cc
     style Q fill:#e8f4ff,stroke:#0066cc
@@ -71,7 +67,7 @@ flowchart TD
     style EA fill:#f3e8ff,stroke:#7c3aed
 ```
 
-> ⭐ R &nbsp;|&nbsp; ⚙️ sanity check &nbsp;|&nbsp; 🔬 RSeQC &nbsp;|&nbsp; 🧫 FastQ Screen &nbsp;|&nbsp; other = Bash
+> ⭐ R &nbsp;|&nbsp; ⚙️ sanity check &nbsp;|&nbsp; 🔬 RSeQC &nbsp;|&nbsp; other = Bash
 
 ---
 
@@ -79,10 +75,9 @@ flowchart TD
 
 - **SE and PE** support; choice set in `config.conf`
 - **Human and mouse** in one config — switch with `SPECIES=`
-- **FastQ Screen (Step 2b)** — screens raw reads against Mouse, Human, Zebrafish, Drosophila, and Mycoplasma reference panels before trimming; detects species swap and mycoplasma contamination; results integrated into final MultiQC report
 - **Strand-aware BigWig tracks** (forward / reverse) or unstranded
 - **UCSC-compatible BigWigs** — canonical chromosomes only (UCSC or Ensembl naming)
-- **Preflight check** — validates tools, R packages, RSeQC binaries, FastQ Screen conf, BED file, and genome paths before the run starts
+- **Preflight check** — validates tools, R packages, RSeQC binaries, BED file, and genome paths before the run starts
 - **STAR alignment summary TSV** from `Log.final.out` — included in MultiQC
 - **RSeQC QC module** — infer_experiment, read_distribution, junction_annotation, junction_saturation, geneBody_coverage; integrated into MultiQC
 - **Strand consistency check** — hard fail if Fwd+Rev diverges from Total by more than the configured tolerance
@@ -164,9 +159,6 @@ See `examples/contrasts_example.csv`.
 | `PADJ_THRESHOLD` | `0.05` | adjusted p-value threshold for ORA gene list in enrichment |
 | `ENRICHMENT_MINGS` | `10` | minimum gene set size for enrichment |
 | `ENRICHMENT_MAXGS` | `500` | maximum gene set size for enrichment |
-| `FASTQSCREEN_CONF` | `config/fastq_screen.conf` | path to FastQ Screen database config |
-| `FASTQSCREEN_THREADS` | `4` | bowtie2 threads per sample for FastQ Screen |
-| `FASTQSCREEN_SUBSET` | `200000` | reads sampled per file (0 = all) |
 | `MAX_JOBS` | `8` | maximum parallel background jobs |
 | `FORCE_RERUN` | `0` | set to `1` to force rerun of completed steps |
 
@@ -211,7 +203,6 @@ Completion is tracked by `analysis/enrichment/.enrichment_done`. Delete this fil
 ```
 <OUTDIR>/
 ├── fastQC/          raw and trimmed FastQC reports
-├── fastQScreen/     FastQ Screen per-sample reports (species + mycoplasma)
 ├── multiQC/         MultiQC reports (raw, trimmed, alignments, final)
 ├── trimmedFastq/    TrimGalore output
 ├── STARalignments/  raw BAM files from STAR
@@ -243,9 +234,6 @@ Completion is tracked by `analysis/enrichment/.enrichment_done`. Delete this fil
 Steps use sentinel files to skip completed work. To rerun specific steps without rerunning the full pipeline:
 
 ```bash
-# Rerun FastQ Screen (Step 2b) only
-rm -f fastQScreen/*
-
 # Rerun DE (Step 16) and enrichment (Step 21) only
 rm -f analysis/DE/*_DE_results.tsv
 rm -f analysis/enrichment/.enrichment_done
@@ -272,7 +260,6 @@ conda activate rnaseq2tracks
 Additionally required (not available via conda):
 - **UCSC kentutils** — `bedGraphToBigWig`; set `KENTUTILS_DIR` in `config.conf`
 - **Genome files** — STAR index, GTF, chrom.sizes, RSeQC BED12; paths set in `config.conf`
-- **FastQ Screen bowtie2 indexes** — built once per species panel; paths set in `config/fastq_screen.conf`
 
 See `docs/INSTALLATION.md` for detailed setup instructions.
 
@@ -288,11 +275,11 @@ See `docs/INSTALLATION.md` for detailed setup instructions.
 | `docs/WORKFLOW.md` | Step-by-step pipeline description |
 | `docs/RSEQC.md` | RSeQC module documentation and metric interpretation |
 | `docs/SCRIPTS.md` | Description of all scripts and R modules |
-| [docs/FASTQSCREEN.md](docs/FASTQSCREEN.md) | FastQ Screen — species swap & mycoplasma contamination check |
 | [docs/gene_set_enrichment.md](docs/gene_set_enrichment.md) | Gene set enrichment analysis (ORA, GSEA, Hallmarks) |
 | [docs/THRESHOLDS.md](docs/THRESHOLDS.md) | Statistical thresholds (DEG and GSEA) |
 
 ---
+
 
 ## Citation
 

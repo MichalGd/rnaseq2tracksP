@@ -7,15 +7,11 @@
 ├── fastQC/
 │   ├── raw/                   FastQC HTML + zip per sample (raw)
 │   └── trimmed/               FastQC HTML + zip (trimmed)
-├── fastQScreen/               FastQ Screen per-sample reports (Step 2b)
-│   ├── *_screen.txt           Tab-separated mapping % per reference database
-│   ├── *_screen.html          Interactive per-sample bar chart
-│   └── *_screen.png           Static plot
 ├── multiQC/
 │   ├── raw/multiQC_raw.html
 │   ├── trimmed/multiQC_trimmed.html
 │   ├── alignments/multiQC_alignments.html
-│   └── final/multiQC_final.html        ← includes RSeQC + FastQ Screen outputs
+│   └── final/multiQC_final.html        ← includes RSeQC outputs
 ├── trimmedFastq/              trimmed FASTQ (.fq.gz)
 ├── STARalignments/            *Aligned.out.bam
 ├── STARlogs/                  *Log.final.out
@@ -86,13 +82,10 @@
     └── ucsc_tracks.txt
 ```
 
----
-
 ## Key output files
 
 | File | Description |
 |------|-------------|
-| `fastQScreen/*_screen.txt` | Per-sample mapping % against Mouse, Human, Zebrafish, Drosophila, Mycoplasma panels |
 | `star_alignment_summary.tsv` | Uniquely mapped %, multi-mapped %, input reads per sample |
 | `size_factors.tsv` | DESeq2 size factor and SF_rpm per sample |
 | `raw_counts.tsv` | Raw gene counts matrix |
@@ -104,27 +97,7 @@
 | `*_GSEA_*.tsv` | GSEA results (NES, p.adjust, leading edge genes) |
 | `*_infer_experiment.txt` | Strandedness fraction — use to validate samplesheet |
 | `*_read_distribution.txt` | % reads in CDS, UTR, intron, intergenic |
-| `multiQC_final.html` | Complete QC report including RSeQC and FastQ Screen |
-
----
-
-## FastQ Screen output columns (`*_screen.txt`)
-
-| Column | Description |
-|--------|-------------|
-| `Genome` | Database name as defined in `fastq_screen.conf` |
-| `#Reads_processed` | Total reads in the screened subset |
-| `#Unmapped` | Reads with no hit in this database |
-| `%Unmapped` | Percentage unmapped |
-| `#One_hit_one_library` | Reads mapping uniquely to this database only |
-| `%One_hit_one_library` | Percentage uniquely mapped to this database only |
-| `#Multiple_hits_one_library` | Reads with multiple hits in this database only |
-| `#One_hit_multiple_libraries` | Reads mapping to this and at least one other database |
-| `%One_hit_multiple_libraries` | Percentage of cross-mapping reads |
-
-**Interpretation:** for a clean mouse sample, `%One_hit_one_library` for Mouse should be ~90–97 %. Mycoplasma `%One_hit_one_library` > 0.5 % warrants investigation; > 2 % is a confirmed contamination flag.
-
----
+| `multiQC_final.html` | Complete QC report including RSeQC |
 
 ## Enrichment output columns
 

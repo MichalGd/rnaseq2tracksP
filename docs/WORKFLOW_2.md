@@ -4,11 +4,10 @@
 
 | Step | Script | Language | Origin | Notes |
 |------|--------|----------|--------|-------|
-| 0 | `preflight_check.sh` | Bash | NEW v4 | Tools, R pkgs, RSeQC, FastQ Screen conf + indexes, genome files |
-| 1 | mkdir | Bash | — | Output tree including 07_qc/, fastQScreen/, and analysis/enrichment/ |
+| 0 | `preflight_check.sh` | Bash | NEW v4 | Tools, R pkgs, RSeQC, genome files |
+| 1 | mkdir | Bash | — | Output tree including 07_qc/ and analysis/enrichment/ |
 | 2 | FastQC | Bash | — | Parallel raw reads |
 | 3 | MultiQC | Bash | — | Raw QC |
-| 2b | `fastq_screen` | Bash | **NEW v5** | Species swap + mycoplasma screen on raw reads; bowtie2 against 5-species panel |
 | 4 | `trimgalore_single.sh` | Bash | ADAPTED v1 | SE or PE; `--basename` |
 | 5 | FastQC | Bash | — | Trimmed |
 | 6 | MultiQC | Bash | — | Trimmed QC |
@@ -28,54 +27,9 @@
 | 16 | `deseq2_de.R` | R | ADAPTED v4.2 | Wald + apeglm/ashr LFC shrinkage; unshrunken + shrunken volcano and MA plots; annotated count tables |
 | 17 | `deseq2_qc_plots.R` | R | ADAPTED v1 | PCA, clustering, heatmaps |
 | 18 | `create_ucsc_tracks.sh` | Bash | ADAPTED v1 | ucsc_tracks.txt |
-| 19 | MultiQC final | Bash | — | All sources including RSeQC and FastQ Screen |
+| 19 | MultiQC final | Bash | — | All sources including RSeQC |
 | 20 | `pipeline_report.Rmd` | R Markdown | NEW v1 | HTML report |
 | 21 | `deseq2_enrichment.R` | R | **NEW v5** | ORA + GSEA: GO BP/MF/CC, KEGG, Reactome, MSigDB Hallmarks |
-
----
-
-## Step 2b — FastQ Screen detail
-
-Step 2b runs immediately after raw FastQC (Step 2) and **before** TrimGalore (Step 4). It screens a random subset of raw reads against a multi-species bowtie2 panel.
-
-**Purpose:** detect two classes of pre-alignment quality problems that are invisible to FastQC:
-- **Species swap** — a sample mapping predominantly to the wrong organism (e.g. human reads in a mouse experiment)
-- **Mycoplasma contamination** — a common cell culture contaminant that can account for up to a few percent of reads
-
-**Reference panel:**
-
-| Database | Genome | Version |
-|---|---|---|
-| Mouse | GRCm39 | GENCODE M31 |
-| Human | GRCh38 | GENCODE v42 |
-| Zebrafish | GRCz11 | Ensembl 112 |
-| Drosophila | BDGP6.46 | Ensembl 112 |
-| Mycoplasma | Combined 8-species | NCBI RefSeq |
-
-**Config parameters:**
-
-| Variable | Default | Description |
-|---|---|---|
-| `FASTQSCREEN_CONF` | `config/fastq_screen.conf` | Path to database config |
-| `FASTQSCREEN_THREADS` | `4` | bowtie2 threads per sample |
-| `FASTQSCREEN_SUBSET` | `200000` | Reads sampled per file (0 = all) |
-
-**Step behaviour:** skips gracefully (warning logged) if `fastq_screen` is absent from PATH or the conf file is missing. The pipeline continues to Step 4 in that case.
-
-**Action thresholds:**
-
-| Observation | Threshold | Action |
-|---|---|---|
-| Non-expected species | > 5 % | Warning — check sample provenance |
-| Non-expected species | > 20 % | Fail — exclude sample |
-| Mycoplasma | > 0.5 % | Warning — notify cell culture team |
-| Mycoplasma | > 2 % | Fail — confirmed contamination, exclude sample |
-
-**Output:** `fastQScreen/<sample>_screen.txt|html|png` per sample. All results are included automatically in the final MultiQC report (Step 19) as a stacked bar chart panel.
-
-See [`docs/FASTQSCREEN.md`](FASTQSCREEN.md) for full setup instructions including bowtie2 index building.
-
----
 
 ## Step 21 — Gene enrichment analysis detail
 
@@ -104,17 +58,13 @@ Step 21 runs after Step 16 (DE) and processes each contrast independently.
 
 **Step caching:** Completion is tracked by `analysis/enrichment/.enrichment_done`. Delete this file to rerun Step 21 without rerunning the full pipeline.
 
----
-
 ## Strandedness → STAR column
 
 | Value | STAR col | Library |
-|-------|---------|---------
+|-------|---------|---------|
 | `unstranded` | 2 | Non-stranded |
 | `forward` | 3 | Read 1 on RNA strand |
 | `reverse` | 4 | dUTP / NEBNext Ultra II / TruSeq Stranded |
-
----
 
 ## Chromosome filter
 
@@ -125,24 +75,22 @@ Step 21 runs after Step 16 (DE) and processes each contrast independently.
 | mouse | ucsc | chr1–19, chrX, chrY, chrM |
 | mouse | ensembl | 1–19, X, Y, MT |
 
----
-
 ## Rerunning specific steps
 
-Steps use sentinel files and output-existence checks to skip completed work.
+Steps use sentinel files and output-existence checks to skip completed work. To rerun only DE and enrichment:
 
 ```bash
-# Rerun FastQ Screen only (Step 2b)
-rm -f fastQScreen/*
-
-# Rerun DE (Step 16) and enrichment (Step 21) only
+# Remove sentinels for Steps 16 and 21
 rm -f analysis/DE/*_DE_results.tsv
 rm -f analysis/enrichment/.enrichment_done
 
+# Run with custom thresholds
 DE_LFC_THRESHOLD=0 DE_PADJ_THRESHOLD=0.05 \
 PADJ_THRESHOLD=0.05 LFC_THRESHOLD=0 \
 ./scripts/rnaseq2tracks.sh config/config.conf
+```
 
-# Force rerun of all steps
+To force rerun of all steps:
+```bash
 FORCE_RERUN=1 ./scripts/rnaseq2tracks.sh config/config.conf
 ```
