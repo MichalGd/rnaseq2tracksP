@@ -86,7 +86,8 @@ mkdir -p \
   "$OUTDIR/bedGraph/merged" \
   "$OUTDIR/bigwig" \
   "$OUTDIR/analysis/counts"     "$OUTDIR/analysis/DE" \
-  "$OUTDIR/analysis/figures"    "$OUTDIR/reports"
+  "$OUTDIR/analysis/figures"    "$OUTDIR/reports" \
+"$OUTDIR/fastQScreen"
 
 # ── Parse samplesheet ─────────────────────────────────────────────────────────
 declare -a SID R1 R2 COND REP STRAND
@@ -120,6 +121,28 @@ else
   log "STEP 3 — MultiQC raw"
   "${MULTIQC_BIN:-multiqc}" "$OUTDIR/fastQC/raw" -n multiQC_raw \
     -o "$OUTDIR/multiQC/raw" --data-format tsv --export -q
+fi
+
+# ── Step 2b: FastQ Screen — species swap + mycoplasma contamination ───────────
+_s2b="$OUTDIR/fastQScreen/${SID[0]}_screen.txt"
+if done_check "$_s2b"; then skip "STEP 2b — FastQ Screen"
+else
+  FASTQSCREEN_CONF="${FASTQSCREEN_CONF:-$REPO/config/fastq_screen.conf}"
+  if [[ -f "$FASTQSCREEN_CONF" ]] && command -v fastq_screen &>/dev/null; then
+    log "STEP 2b — FastQ Screen (species + mycoplasma screen)"
+    for ((i=0;i<N;i++)); do
+      submit "fastq_screen \
+        --conf '$FASTQSCREEN_CONF' \
+        --outdir '$OUTDIR/fastQScreen' \
+        --threads '${FASTQSCREEN_THREADS:-4}' \
+        --subset '${FASTQSCREEN_SUBSET:-200000}' \
+        --aligner bowtie2 \
+        '${R1[$i]}'"
+    done
+    wait_all
+  else
+    log "STEP 2b — FastQ Screen SKIPPED (fastq_screen not found or conf missing: $FASTQSCREEN_CONF)"
+  fi
 fi
 
 # ── Step 4: TrimGalore ────────────────────────────────────────────────────────
@@ -385,7 +408,7 @@ if done_check "$OUTDIR/multiQC/final/multiQC_final.html"; then
   skip "STEP 19 — MultiQC final"
 else
   log "STEP 19 — MultiQC final"
-  MQC_SOURCES=("$OUTDIR/fastQC" "$OUTDIR/multiQC/raw" "$OUTDIR/multiQC/trimmed"
+  MQC_SOURCES=("$OUTDIR/fastQC" "$OUTDIR/fastQScreen" "$OUTDIR/multiQC/raw" "$OUTDIR/multiQC/trimmed"
                "$OUTDIR/STARlogs" "$OUTDIR/multiQC/alignments")
   for d in read_distribution junction_annotation junction_saturation genebody; do
     [[ -d "$OUTDIR/07_qc/rseqc/$d" ]] && MQC_SOURCES+=("$OUTDIR/07_qc/rseqc/$d")

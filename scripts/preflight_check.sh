@@ -127,3 +127,26 @@ echo "Preflight: $FAIL FAIL  $WARN WARN"
 echo "════════════════════════════════════════"
 [[ $FAIL -eq 0 ]] || { echo "Fix FAIL items before running." >&2; exit 1; }
 echo "Preflight passed."
+
+# ── FastQ Screen (Step 2b — optional) ────────────────────────────────────────
+FASTQSCREEN_CONF="${FASTQSCREEN_CONF:-$REPO/config/fastq_screen.conf}"
+if command -v fastq_screen &>/dev/null; then
+    log "OK  fastq_screen: $(fastq_screen --version 2>&1 | head -1)"
+    if [[ -f "$FASTQSCREEN_CONF" ]]; then
+        log "OK  fastq_screen.conf: $FASTQSCREEN_CONF"
+        # verify all DATABASE paths resolve
+        while IFS= read -r line; do
+            [[ "$line" =~ ^DATABASE ]] || continue
+            db_path=$(echo "$line" | awk '{print $3}')
+            if ls "${db_path}".1.bt2 &>/dev/null || ls "${db_path}".1.bt2l &>/dev/null; then
+                log "OK  bowtie2 index: $db_path"
+            else
+                log "WARN missing bowtie2 index: $db_path (Step 2b will skip this database)"
+            fi
+        done < "$FASTQSCREEN_CONF"
+    else
+        log "WARN fastq_screen.conf not found: $FASTQSCREEN_CONF (Step 2b will be skipped)"
+    fi
+else
+    log "WARN fastq_screen not in PATH (Step 2b will be skipped)"
+fi
