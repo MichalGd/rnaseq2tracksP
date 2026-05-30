@@ -9,5 +9,5 @@ if [[ "$LAYOUT" == "PE" ]]; then
     --fastqc --output_dir "$OUTDIR" --basename "$SID" "$R1" "$R2"
 else
   trim_galore --quality "$QUAL" --length "$MINLEN" \
-    --fastqc --output_dir "$OUTDIR" "$R1"
+    --fastqc --output_dir "$OUTDIR" --basename "$SID" "$R1"
 fi

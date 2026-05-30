@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+
 # ORIGIN: NEW v4.0 — preflight dependency and file check
 set -euo pipefail
 CONFIG="$1"
