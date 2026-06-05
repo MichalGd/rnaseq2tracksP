@@ -23,6 +23,13 @@ Enrichment-specific variables (optional, have defaults):
 - `ENRICHMENT_MINGS` — minimum gene set size (default `10`)
 - `ENRICHMENT_MAXGS` — maximum gene set size (default `500`)
 
+Cleanup variables (optional, all default to `0` = off):
+- `CLEANUP_INTERMEDIATES` — `1` = remove large intermediate files after successful run
+- `CLEANUP_DRYRUN` — `1` = preview mode (prints what would be deleted, no files removed)
+- `CLEANUP_ALLCHR_BEDGRAPH` — `1` = also remove `bigwig/*.all_chromosomes.bedGraph.gz`
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for cleanup details.
+
 ## 2. Prepare samplesheet
 
 Copy template and add one row per sample. For PE:
@@ -89,6 +96,22 @@ bash scripts/rerun_deseq_rep12.sh config/config.conf
 ```
 
 Output goes to `analysis_rep12/` inside `OUTDIR`.
+
+## Post-run storage cleanup
+
+After a successful run, remove large intermediate files to free disk space:
+
+```bash
+# Option A — one-shot cleanup for a completed run (dry-run first)
+bash scripts/cleanup_existing_run.sh $OUTDIR --dry-run
+bash scripts/cleanup_existing_run.sh $OUTDIR
+
+# Option B — enable automatic cleanup in future runs
+# Set CLEANUP_INTERMEDIATES=1 in config/config.conf
+# First enable dry-run (CLEANUP_DRYRUN=1) to verify what will be deleted
+```
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for the complete reference.
 
 ## Post-run
 

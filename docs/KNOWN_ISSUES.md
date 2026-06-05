@@ -49,3 +49,15 @@
     map to Entrez IDs via `bitr()`. Unannotated and non-protein-coding genes are commonly
     not mapped. This is expected and does not indicate a problem. The ORA background is
     correctly restricted to genes with valid Entrez mappings.
+
+14. **Cleanup Step 22 — sentinel not found**: Step 22 checks for `multiQC_final.html`,
+    `pipeline_report.html`, and `analysis/enrichment/.enrichment_done` before deleting
+    anything. If the pipeline was run without enrichment (`RUN_DE=false` or Step 21
+    was skipped), `.enrichment_done` will not exist and cleanup will be skipped with a
+    warning. In this case use `cleanup_existing_run.sh` manually after verifying run
+    completeness, or set `CLEANUP_INTERMEDIATES=0` and clean up selectively.
+
+15. **Cleanup Step 22 — partially cleaned run**: If cleanup is run on a partially complete
+    run (e.g. the pipeline failed after Step 15 and was restarted), the sentinel check
+    prevents any deletion. Do not manually create sentinel files to force cleanup on an
+    incomplete run — regenerating deleted files requires rerunning from Step 4 onward.

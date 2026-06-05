@@ -15,12 +15,12 @@
 │   ├── raw/multiQC_raw.html
 │   ├── trimmed/multiQC_trimmed.html
 │   ├── alignments/multiQC_alignments.html
-│   └── final/multiQC_final.html        ← includes RSeQC + FastQ Screen outputs
-├── trimmedFastq/              trimmed FASTQ (.fq.gz)
-├── STARalignments/            *Aligned.out.bam
+│   └── final/multiQC_final.html        ← includes RSeQC + FastQ Screen outputs  [SENTINEL]
+├── trimmedFastq/              trimmed FASTQ (.fq.gz)                              [CLEANUP — Step 22]
+├── STARalignments/            *Aligned.out.bam, *_SJ.out.tab                     [CLEANUP — Step 22]
 ├── STARlogs/                  *Log.final.out
-├── STARgeneCounts/            *ReadsPerGene.out.tab
-├── bams/                      *_sortedS.bam + .bai
+├── STARgeneCounts/            *ReadsPerGene.out.tab                               ← KEPT (DESeq2 input)
+├── bams/                      *_sortedS.bam + .bai                               [CLEANUP — Step 22]
 ├── 07_qc/
 │   ├── star/
 │   │   ├── *_Log.final.out    (symlinks)
@@ -34,11 +34,12 @@
 │   └── multiqc/
 │       └── multiQC_rseqc.html
 ├── bedGraph/
-│   ├── raw/                   *_FwdS.bedGraph.gz  *_RevS.bedGraph.gz
-│   ├── normalized/            *_FwdS_norm.bedGraph.gz  *_all_chromosomes.bedGraph.gz
-│   └── merged/                <condition>_FwdS_norm_merged.bedGraph
-├── bigwig/                    *_FwdS_norm.bw  *_RevS_norm.bw
-│                              <condition>_FwdS_norm_merged.bw
+│   ├── raw/                   *_FwdS.bedGraph.gz  *_RevS.bedGraph.gz             [CLEANUP — Step 22]
+│   ├── normalized/            *_FwdS_norm.bedGraph.gz  *_RevS_norm.bedGraph.gz   ← KEPT
+│   └── merged/                <condition>_FwdS_norm_merged.bedGraph              [CLEANUP — uncompressed only]
+├── bigwig/                    *_FwdS_norm.bw  *_RevS_norm.bw                     ← KEPT
+│                              <condition>_FwdS_norm_merged.bw                    ← KEPT
+│                              *.all_chromosomes.bedGraph.gz                      [CLEANUP — optional, --allchr flag]
 ├── analysis/
 │   ├── counts/
 │   │   ├── raw_counts.tsv
@@ -62,7 +63,7 @@
 │   │   ├── sample_clustering.pdf
 │   │   └── heatmaps.pdf
 │   └── enrichment/
-│       ├── .enrichment_done        sentinel file (delete to rerun Step 21)
+│       ├── .enrichment_done        sentinel file (delete to rerun Step 21)       [SENTINEL]
 │       ├── deseq2_enrichment_sessionInfo.txt
 │       └── <contrast_id>/
 │           ├── *_ORA_GOBP.tsv      ORA results table — GO Biological Process
@@ -82,9 +83,22 @@
 │           ├── *_GSEA_*_barplot.pdf/.png
 │           └── *_GSEA_Hallmarks_barplot.pdf/.png
 └── reports/
-    ├── pipeline_report.html
+    ├── pipeline_report.html                                                       [SENTINEL]
     └── ucsc_tracks.txt
 ```
+
+### Storage cleanup (Step 22)
+
+Directories and files marked `[CLEANUP]` above are large intermediate files that are fully regenerable from raw FASTQs and pipeline scripts. They are removed automatically by Step 22 when `CLEANUP_INTERMEDIATES=1` in `config/config.conf`, after verifying that all three `[SENTINEL]` files exist.
+
+Use `cleanup_existing_run.sh` to clean up runs that have already completed:
+
+```bash
+bash scripts/cleanup_existing_run.sh /path/to/output/ --dry-run   # preview
+bash scripts/cleanup_existing_run.sh /path/to/output/             # live
+```
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for full details, kept/removed file lists, and regeneration instructions.
 
 ---
 

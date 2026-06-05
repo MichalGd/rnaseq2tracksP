@@ -1,15 +1,16 @@
-# Script reference (v5)
+# Script reference (v5.1)
 
 ## Script origin table
 
-| Script | Language | Origin | Change in v5 |
-|--------|----------|--------|--------------|
-| `rnaseq2tracks.sh` | Bash | NEW v1 | Step 2b (FastQ Screen) and Step 21 (enrichment) added; version v5 |
+| Script | Language | Origin | Change in v5 / v5.1 |
+|--------|----------|--------|----------------------|
+| `rnaseq2tracks.sh` | Bash | NEW v1 | Step 2b (FastQ Screen) and Step 21 (enrichment) added in v5; Step 22 (cleanup) added in v5.1 |
 | `preflight_check.sh` | Bash | NEW v4 | FastQ Screen conf + bowtie2 index validation added |
 | `run_rnaseq_qc.sh` | Bash | ADAPTED v4 | — |
 | `collect_star_qc.sh` | Bash | NEW v4 | — |
 | `check_strand_consistency.sh` | Bash | NEW v4 | — |
 | `rerun_deseq_rep12.sh` | Bash | **NEW v5** | Utility: re-run DE on replicate subset |
+| `cleanup_existing_run.sh` | Bash | **NEW v5.1** | One-shot cleanup for already-completed runs. Sentinel-gated, prints space freed per category. Options: `--dry-run`, `--allchr`. See [`docs/CLEANUP.md`](CLEANUP.md) |
 | `star_SE_single.sh` | Bash | ADAPTED v1 | — |
 | `star_PE_single.sh` | Bash | NEW v1 | — |
 | `trimgalore_single.sh` | Bash | ADAPTED v1 | — |
@@ -60,6 +61,31 @@ Step 2b is inserted between Step 3 (MultiQC raw) and Step 4 (TrimGalore). It scr
 **Parallelism:** one `fastq_screen` job is submitted per sample (R1 only for PE) using the existing `submit`/`waitall` job-throttle. Thread count per job is controlled by `FASTQSCREEN_THREADS`.
 
 **MultiQC integration:** `fastQScreen/` is included in the `MQCSOURCES` list for Step 19. MultiQC auto-detects `*_screen.txt` files and renders a stacked bar chart panel in `multiQC_final.html`.
+
+---
+
+## rnaseq2tracks.sh — Step 22 (cleanup)
+
+Step 22 is appended after Step 21. It calls the `cleanup_intermediates()` function, which performs the following:
+
+1. Checks all three pipeline sentinels (`multiQC_final.html`, `pipeline_report.html`, `.enrichment_done`) and at least one `.bw` file
+2. If `CLEANUP_DRYRUN=1`, prints each file that would be removed and the total size; no files are deleted
+3. If `CLEANUP_INTERMEDIATES=1` and all sentinels pass, deletes:
+   - `trimmedFastq/*.fq.gz`
+   - `STARalignments/*_Aligned.out.bam`, `STARalignments/*_SJ.out.tab`
+   - `bams/*_sortedS.bam`, `bams/*_sortedS.bam.bai`
+   - `bedGraph/raw/*.bedGraph.gz`
+   - `bedGraph/merged/*.bedGraph` (uncompressed only)
+   - `bigwig/*.all_chromosomes.bedGraph.gz` (only if `CLEANUP_ALLCHR_BEDGRAPH=1`)
+4. Prints per-category space freed
+
+The standalone `cleanup_existing_run.sh` exposes the same logic for runs that have already completed. Usage:
+
+```bash
+bash scripts/cleanup_existing_run.sh <OUTDIR> [--dry-run] [--allchr]
+```
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for complete details.
 
 ---
 

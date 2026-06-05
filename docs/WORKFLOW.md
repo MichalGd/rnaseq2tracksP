@@ -1,4 +1,4 @@
-# Workflow — step reference (v5)
+# Workflow — step reference (v5.1)
 
 ## Step table
 
@@ -31,6 +31,7 @@
 | 19 | MultiQC final | Bash | — | All sources including RSeQC and FastQ Screen |
 | 20 | `pipeline_report.Rmd` | R Markdown | NEW v1 | HTML report |
 | 21 | `deseq2_enrichment.R` | R | **NEW v5** | ORA + GSEA: GO BP/MF/CC, KEGG, Reactome, MSigDB Hallmarks |
+| 22 | `cleanup_intermediates()` (inline) + `cleanup_existing_run.sh` | Bash | **NEW v5.1** | Removes large regenerable intermediate files after confirmed pipeline success. Gated on 3 completion sentinels. Controlled by `CLEANUP_INTERMEDIATES`, `CLEANUP_DRYRUN`, `CLEANUP_ALLCHR_BEDGRAPH` in config. See [`docs/CLEANUP.md`](CLEANUP.md) |
 
 ---
 
@@ -106,10 +107,36 @@ Step 21 runs after Step 16 (DE) and processes each contrast independently.
 
 ---
 
+## Step 22 — Post-run cleanup detail
+
+Step 22 runs after Step 21 and removes large intermediate files that can be fully regenerated from raw FASTQs and pipeline scripts. It is **disabled by default** (`CLEANUP_INTERMEDIATES=0`).
+
+**Sentinels — all must exist before any file is deleted:**
+
+| Sentinel file | Created at step |
+|---|---|
+| `multiQC/final/multiQC_final.html` | Step 19 |
+| `reports/pipeline_report.html` | Step 20 |
+| `analysis/enrichment/.enrichment_done` | Step 21 |
+
+At least one `bigwig/*.bw` file must also be present. If any sentinel is missing, cleanup is skipped with a warning.
+
+**Config parameters:**
+
+| Variable | Default | Description |
+|---|---|---|
+| `CLEANUP_INTERMEDIATES` | `0` | `1` = enable cleanup |
+| `CLEANUP_DRYRUN` | `0` | `1` = print what would be deleted without deleting |
+| `CLEANUP_ALLCHR_BEDGRAPH` | `0` | `1` = also remove `bigwig/*.all_chromosomes.bedGraph.gz` |
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for full details, kept/removed file lists, and regeneration instructions.
+
+---
+
 ## Strandedness → STAR column
 
 | Value | STAR col | Library |
-|-------|---------|---------
+|-------|---------|---------|
 | `unstranded` | 2 | Non-stranded |
 | `forward` | 3 | Read 1 on RNA strand |
 | `reverse` | 4 | dUTP / NEBNext Ultra II / TruSeq Stranded |
@@ -119,7 +146,7 @@ Step 21 runs after Step 16 (DE) and processes each contrast independently.
 ## Chromosome filter
 
 | SPECIES | CHROMOSOME_NAMING | Retained |
-|---------|-------------------|---------|
+|---------|-------------------|---------| 
 | human | ucsc | chr1–22, chrX, chrY, chrM |
 | human | ensembl | 1–22, X, Y, MT |
 | mouse | ucsc | chr1–19, chrX, chrY, chrM |
@@ -139,6 +166,10 @@ rm -f fastQScreen/*
 rm -f analysis/DE/*_DE_results.tsv
 rm -f analysis/enrichment/.enrichment_done
 
+# Rerun enrichment only (Step 21)
+rm -f analysis/enrichment/.enrichment_done
+
+# Rerun with custom thresholds (LFC=0 for broader sensitivity)
 DE_LFC_THRESHOLD=0 DE_PADJ_THRESHOLD=0.05 \
 PADJ_THRESHOLD=0.05 LFC_THRESHOLD=0 \
 ./scripts/rnaseq2tracks.sh config/config.conf
@@ -146,3 +177,20 @@ PADJ_THRESHOLD=0.05 LFC_THRESHOLD=0 \
 # Force rerun of all steps
 FORCE_RERUN=1 ./scripts/rnaseq2tracks.sh config/config.conf
 ```
+
+## Cleanup — removing large intermediates
+
+After a successful run, free disk space by removing regenerable files:
+
+```bash
+# Dry-run first — see what would be deleted
+bash scripts/cleanup_existing_run.sh /path/to/output/ --dry-run
+
+# Live cleanup
+bash scripts/cleanup_existing_run.sh /path/to/output/
+
+# Or enable automatic cleanup in config for future runs:
+# CLEANUP_INTERMEDIATES=1 in config/config.conf
+```
+
+See [`docs/CLEANUP.md`](CLEANUP.md) for the full reference.
