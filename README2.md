@@ -2,13 +2,12 @@
   <h1 align="center">rnaseq2tracks</h1>
   <p align="center">End-to-end RNA-seq: raw FASTQ → counts → normalized BigWigs → differential expression → gene set enrichment</p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-5.1-blue"/>
+    <img src="https://img.shields.io/badge/version-5.0-blue"/>
     <img src="https://img.shields.io/badge/language-Bash%20%7C%20R-informational"/>
     <img src="https://img.shields.io/badge/aligner-STAR-green"/>
     <img src="https://img.shields.io/badge/QC-FastQ%20Screen%20%7C%20RSeQC-orange"/>
     <img src="https://img.shields.io/badge/DE-DESeq2-red"/>
     <img src="https://img.shields.io/badge/enrichment-ORA%20%7C%20GSEA-purple"/>
-    <img src="https://img.shields.io/badge/cleanup-Step%2022-lightgrey"/>
     <img src="https://img.shields.io/badge/layout-SE%20%7C%20PE-orange"/>
     <img src="https://img.shields.io/badge/species-human%20%7C%20mouse-lightblue"/>
     <img src="https://img.shields.io/badge/license-MIT-lightgrey"/>
@@ -55,7 +54,6 @@ flowchart TD
     EA --> Z([📊 Reports\nHTML · BigWigs · DE tables · enrichment plots])
     FQS --> Z
     X --> Z; Y --> Z; Q --> Z
-    Z --> CL[🗑️ Step 22: cleanup_intermediates\ntrimmed FASTQs · BAMs · raw bedGraphs\nsentinel-gated · optional]
 
     style A fill:#4a90d9,color:#fff
     style Z fill:#27ae60,color:#fff
@@ -71,10 +69,9 @@ flowchart TD
     style W fill:#fff3cd,stroke:#f0a500
     style X fill:#fff3cd,stroke:#f0a500
     style EA fill:#f3e8ff,stroke:#7c3aed
-    style CL fill:#f0f0f0,stroke:#888888
 ```
 
-> ⭐ R &nbsp;|&nbsp; ⚙️ sanity check &nbsp;|&nbsp; 🔬 RSeQC &nbsp;|&nbsp; 🧫 FastQ Screen &nbsp;|&nbsp; 🗑️ cleanup &nbsp;|&nbsp; other = Bash
+> ⭐ R &nbsp;|&nbsp; ⚙️ sanity check &nbsp;|&nbsp; 🔬 RSeQC &nbsp;|&nbsp; 🧫 FastQ Screen &nbsp;|&nbsp; other = Bash
 
 ---
 
@@ -95,7 +92,6 @@ flowchart TD
 - **Replicate merging** — GRanges disjoin mean BigWigs
 - **HTML pipeline report** — STAR summary, size factors, infer_experiment table, output index
 - **Executable smoke test** — pre-flight checks before the full run
-- **Post-run storage cleanup** (Step 22) — automatically removes large regenerable intermediate files (trimmed FASTQs, BAMs, raw bedGraphs) after confirmed pipeline success; sentinel-gated, dry-run mode available; off by default
 
 ---
 
@@ -171,9 +167,6 @@ See `examples/contrasts_example.csv`.
 | `FASTQSCREEN_CONF` | `config/fastq_screen.conf` | path to FastQ Screen database config |
 | `FASTQSCREEN_THREADS` | `4` | bowtie2 threads per sample for FastQ Screen |
 | `FASTQSCREEN_SUBSET` | `200000` | reads sampled per file (0 = all) |
-| `CLEANUP_INTERMEDIATES` | `0` | `1` = remove large intermediate files after successful run |
-| `CLEANUP_DRYRUN` | `0` | `1` = preview mode — print what would be deleted, no deletion |
-| `CLEANUP_ALLCHR_BEDGRAPH` | `0` | `1` = also remove `bigwig/*.all_chromosomes.bedGraph.gz` |
 | `MAX_JOBS` | `8` | maximum parallel background jobs |
 | `FORCE_RERUN` | `0` | set to `1` to force rerun of completed steps |
 
@@ -211,45 +204,6 @@ Step 21 runs after differential expression (Step 16) and uses the DE results as 
 
 Completion is tracked by `analysis/enrichment/.enrichment_done`. Delete this file to rerun Step 21 without rerunning the full pipeline.
 
-See [`docs/gene_set_enrichment.md`](docs/gene_set_enrichment.md) for full details on methods, thresholds, and output interpretation.
-
----
-
-## Post-run storage cleanup (Step 22)
-
-After a successful run, large intermediate files that can be fully regenerated from raw FASTQs can be removed to free disk space. Cleanup is **disabled by default** and is gated on three pipeline completion sentinels — no files are deleted from an incomplete run.
-
-**Files removed** (all regenerable from raw FASTQs + pipeline scripts):
-
-| Directory | Pattern |
-|---|---|
-| `trimmedFastq/` | `*_trimmed.fq.gz`, `*_val_[12].fq.gz` |
-| `STARalignments/` | `*_Aligned.out.bam`, `*_SJ.out.tab` |
-| `bams/` | `*_sortedS.bam`, `*_sortedS.bam.bai` |
-| `bedGraph/raw/` | `*.bedGraph.gz` (un-normalised) |
-| `bedGraph/merged/` | `*.bedGraph` (uncompressed only) |
-| `bigwig/` *(optional)* | `*.all_chromosomes.bedGraph.gz` |
-
-**Enable in `config/config.conf`:**
-
-```bash
-CLEANUP_INTERMEDIATES=1    # enable cleanup
-CLEANUP_DRYRUN=1           # start with dry-run to preview what will be deleted
-CLEANUP_ALLCHR_BEDGRAPH=0  # optionally also remove all_chromosomes.bedGraph.gz
-```
-
-**One-shot cleanup for an already-completed run:**
-
-```bash
-# Dry-run first
-bash scripts/cleanup_existing_run.sh /path/to/output/ --dry-run
-
-# Live cleanup
-bash scripts/cleanup_existing_run.sh /path/to/output/
-```
-
-See [`docs/CLEANUP.md`](docs/CLEANUP.md) for full details, sentinel logic, and regeneration instructions.
-
 ---
 
 ## Output directory structure
@@ -259,16 +213,16 @@ See [`docs/CLEANUP.md`](docs/CLEANUP.md) for full details, sentinel logic, and r
 ├── fastQC/          raw and trimmed FastQC reports
 ├── fastQScreen/     FastQ Screen per-sample reports (species + mycoplasma)
 ├── multiQC/         MultiQC reports (raw, trimmed, alignments, final)
-├── trimmedFastq/    TrimGalore output                          [CLEANUP]
-├── STARalignments/  raw BAM files from STAR                   [CLEANUP]
+├── trimmedFastq/    TrimGalore output
+├── STARalignments/  raw BAM files from STAR
 ├── STARlogs/        STAR Log.final.out files
-├── STARgeneCounts/  STAR gene count tables                    ← kept (DESeq2 input)
-├── bams/            sorted and indexed BAM files              [CLEANUP]
+├── STARgeneCounts/  STAR gene count tables
+├── bams/            sorted and indexed BAM files
 ├── bedGraph/
-│   ├── raw/         per-sample raw bedGraphs                  [CLEANUP]
-│   ├── normalized/  per-sample SF_rpm-normalized bedGraphs    ← kept
-│   └── merged/      per-condition merged bedGraphs            [CLEANUP uncompressed]
-├── bigwig/          per-sample and per-condition BigWig files ← kept
+│   ├── raw/         per-sample raw bedGraphs
+│   ├── normalized/  per-sample SF_rpm-normalized bedGraphs
+│   └── merged/      per-condition merged bedGraphs
+├── bigwig/          per-sample and per-condition BigWig files
 ├── 07_qc/
 │   ├── star/        STAR alignment summary TSV
 │   ├── rseqc/       RSeQC outputs per sample
@@ -281,8 +235,6 @@ See [`docs/CLEANUP.md`](docs/CLEANUP.md) for full details, sentinel logic, and r
 │   └── enrichment/  per-contrast ORA and GSEA results (TSV tables and plots)
 └── reports/         HTML pipeline report, UCSC track hub file
 ```
-
-Full output reference with file-level descriptions: [`docs/OUTPUTS.md`](docs/OUTPUTS.md).
 
 ---
 
@@ -302,16 +254,8 @@ DE_LFC_THRESHOLD=0 DE_PADJ_THRESHOLD=0.05 \
 PADJ_THRESHOLD=0.05 LFC_THRESHOLD=0 \
 ./scripts/rnaseq2tracks.sh config/config.conf
 
-# Rerun enrichment only (Step 21)
-rm -f analysis/enrichment/.enrichment_done
-./scripts/rnaseq2tracks.sh config/config.conf
-
 # Force rerun of all steps
 FORCE_RERUN=1 ./scripts/rnaseq2tracks.sh config/config.conf
-
-# Clean up intermediates from a completed run
-bash scripts/cleanup_existing_run.sh $OUTDIR --dry-run   # preview first
-bash scripts/cleanup_existing_run.sh $OUTDIR
 ```
 
 ---
@@ -330,7 +274,7 @@ Additionally required (not available via conda):
 - **Genome files** — STAR index, GTF, chrom.sizes, RSeQC BED12; paths set in `config.conf`
 - **FastQ Screen bowtie2 indexes** — built once per species panel; paths set in `config/fastq_screen.conf`
 
-See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for detailed setup instructions.
+See `docs/INSTALLATION.md` for detailed setup instructions.
 
 ---
 
@@ -338,17 +282,15 @@ See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for detailed setup instructio
 
 | Document | Description |
 |----------|-------------|
-| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Conda setup, genome file preparation, RSeQC BED generation |
-| [`docs/USAGE.md`](docs/USAGE.md) | Detailed usage, config parameters, and rerun instructions |
-| [`docs/OUTPUTS.md`](docs/OUTPUTS.md) | Full description of all output files and directories |
-| [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | Step-by-step pipeline description (Steps 0–22) |
-| [`docs/CLEANUP.md`](docs/CLEANUP.md) | Post-run storage cleanup — what is removed, sentinels, regeneration |
-| [`docs/RSEQC.md`](docs/RSEQC.md) | RSeQC module documentation and metric interpretation |
-| [`docs/SCRIPTS.md`](docs/SCRIPTS.md) | Description of all scripts and R modules |
-| [`docs/FASTQSCREEN.md`](docs/FASTQSCREEN.md) | FastQ Screen — species swap & mycoplasma contamination check |
-| [`docs/gene_set_enrichment.md`](docs/gene_set_enrichment.md) | Gene set enrichment analysis (ORA, GSEA, Hallmarks) |
-| [`docs/THRESHOLDS.md`](docs/THRESHOLDS.md) | Statistical thresholds (DEG and GSEA) |
-| [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) | Known issues and workarounds |
+| `docs/INSTALLATION.md` | Conda setup, genome file preparation, RSeQC BED generation |
+| `docs/USAGE.md` | Detailed usage, config parameters, and rerun instructions |
+| `docs/OUTPUTS.md` | Full description of all output files and directories |
+| `docs/WORKFLOW.md` | Step-by-step pipeline description |
+| `docs/RSEQC.md` | RSeQC module documentation and metric interpretation |
+| `docs/SCRIPTS.md` | Description of all scripts and R modules |
+| [docs/FASTQSCREEN.md](docs/FASTQSCREEN.md) | FastQ Screen — species swap & mycoplasma contamination check |
+| [docs/gene_set_enrichment.md](docs/gene_set_enrichment.md) | Gene set enrichment analysis (ORA, GSEA, Hallmarks) |
+| [docs/THRESHOLDS.md](docs/THRESHOLDS.md) | Statistical thresholds (DEG and GSEA) |
 
 ---
 
@@ -357,7 +299,7 @@ See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for detailed setup instructio
 If you use this pipeline, please cite:
 
 ```
-Gdula, M. (2026). rnaseq2tracks (v5.1). GitHub. https://github.com/MichalGd/rnaseq2tracksP
+Gdula, M. (2026). rnaseq2tracks (v5.0). GitHub. https://github.com/MichalGd/rnaseq2tracksP
 ```
 
 See `CITATION.cff` for full citation metadata.
