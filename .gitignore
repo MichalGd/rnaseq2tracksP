@@ -1,9 +1,23 @@
+# ── User-specific config (contains server paths) ─────────────────────────────
 config/config.conf
 config/samplesheet.csv
 config/contrasts.csv
+
+# ── Backup / original files (not for distribution) ───────────────────────────
+config/*_org.csv
+config/*_org.conf
+
+# ── Pipeline runtime outputs (not for distribution) ──────────────────────────
+log.txt
+nohup.out
+startsWith
 *_output/
+
+# ── R/temp artefacts ─────────────────────────────────────────────────────────
 *.RData
 *.log
 *.tmp
+
+# ── System artefacts ─────────────────────────────────────────────────────────
 __pycache__/
 .DS_Store

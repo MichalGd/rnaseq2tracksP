@@ -1,4 +1,4 @@
-# rnaseq2tracks v5.0 — file tree
+# rnaseq2tracks v5.1 — file tree
 
 ./.gitattributes
 ./.gitignore
@@ -10,16 +10,21 @@
 ./README.md
 ./config/config_template.conf
 ./config/contrasts_template.csv
+./config/fastq_screen.conf
 ./config/samplesheet_template_PE.csv
 ./config/samplesheet_template_SE.csv
+./docs/CLEANUP.md
+./docs/FASTQSCREEN.md
 ./docs/GITHUB_UPLOAD.md
 ./docs/INSTALLATION.md
 ./docs/KNOWN_ISSUES.md
 ./docs/OUTPUTS.md
 ./docs/RSEQC.md
 ./docs/SCRIPTS.md
+./docs/THRESHOLDS.md
 ./docs/USAGE.md
 ./docs/WORKFLOW.md
+./docs/gene_set_enrichment.md
 ./environment.yml
 ./examples/contrasts_example.csv
 ./examples/samplesheet_example_PE.csv
@@ -35,6 +40,7 @@
 ./scripts/Rscripts/pipeline_report.Rmd
 ./scripts/bam_sort_index.sh
 ./scripts/check_strand_consistency.sh
+./scripts/cleanup_existing_run.sh
 ./scripts/collect_star_qc.sh
 ./scripts/create_ucsc_tracks.sh
 ./scripts/norm_bedgraph_to_bigwig.sh

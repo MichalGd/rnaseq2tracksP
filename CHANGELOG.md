@@ -1,5 +1,44 @@
 # Changelog
 
+## [5.1] — 2026-06-05
+
+### New feature: post-run storage cleanup (Step 22)
+
+Adds automatic removal of large intermediate files after a successful pipeline run.
+Cleanup is disabled by default and gated on three pipeline-completion sentinels.
+
+### New scripts
+| Script | Origin | Description |
+|--------|--------|-------------|
+| `scripts/cleanup_existing_run.sh` | NEW v5.1 | One-shot cleanup for already-completed runs. Checks completion sentinels, prints space freed per category. Options: `--dry-run`, `--allchr` |
+
+### Modified scripts
+| Script | Change |
+|--------|--------|
+| `scripts/rnaseq2tracks.sh` | Step 22 added: `cleanup_intermediates()` function with sentinel-gated deletion of trimmed FASTQs, unsorted BAMs, sorted BAMs+indices, raw bedGraphs, uncompressed merged bedGraphs |
+
+### New config parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `CLEANUP_INTERMEDIATES` | `0` | `1` = enable automatic cleanup after successful run |
+| `CLEANUP_DRYRUN` | `0` | `1` = dry-run mode (print only, no deletion) |
+| `CLEANUP_ALLCHR_BEDGRAPH` | `0` | `1` = also remove `bigwig/*.all_chromosomes.bedGraph.gz` |
+
+### New documentation
+- `docs/CLEANUP.md` — full cleanup reference: what is removed, what is kept, sentinel logic, regeneration instructions
+
+### Files removed by cleanup
+| Directory | Pattern | Step produced |
+|---|---|---|
+| `trimmedFastq/` | `*_trimmed.fq.gz`, `*_val_[12].fq.gz` | Step 4 |
+| `STARalignments/` | `*_Aligned.out.bam`, `*_SJ.out.tab` | Step 7 |
+| `bams/` | `*_sortedS.bam`, `*_sortedS.bam.bai` | Step 8 |
+| `bedGraph/raw/` | `*.bedGraph.gz` (un-normalised) | Step 10 |
+| `bedGraph/merged/` | `*.bedGraph` (uncompressed only) | Step 14 |
+| `bigwig/` *(optional)* | `*.all_chromosomes.bedGraph.gz` | Steps 13/15 |
+
+---
+
 ## [5.0] — 2026-05-18
 
 ### New scripts

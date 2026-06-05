@@ -2,15 +2,16 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "rnaseq2tracks"
-version: "5.0"
-date-released: "2026-05-18"
+version: "5.1"
+date-released: "2026-06-05"
 abstract: >
   End-to-end RNA-seq workflow from raw FASTQ to count matrices,
   DESeq2-normalized BigWig tracks, differential expression, and
   gene set enrichment analysis (ORA + GSEA). Supports SE/PE,
   stranded/unstranded, human and mouse genomes with UCSC-compatible
   BigWig output and per-contrast enrichment across GO, KEGG,
-  Reactome, and MSigDB Hallmarks.
+  Reactome, and MSigDB Hallmarks. Includes post-run storage cleanup
+  (Step 22) to automatically remove large regenerable intermediate files.
 authors:
   - family-names: Gdula
     given-names: Michal
@@ -23,6 +24,7 @@ keywords:
   - DESeq2
   - STAR
   - RSeQC
+  - FastQ Screen
   - BigWig
   - UCSC
   - enrichment analysis
@@ -30,3 +32,4 @@ keywords:
   - GSEA
   - clusterProfiler
   - ReactomePA
+  - storage cleanup
