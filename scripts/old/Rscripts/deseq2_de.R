@@ -132,22 +132,22 @@ for (i in seq_len(nrow(contrasts))) {
   fwrite(sig, file.path(opt$outdir, paste0(cid, "_significant.tsv")), sep="\t")
 
   # -- Volcano plots -------------------------------------------------------------
-  save_dual(make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC"),
-          file.path(opt$outdir, paste0(cid, "_volcano_raw.pdf")))
-  save_dual(make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC"),
-          file.path(opt$outdir, paste0(cid, "_volcano_shrunk.pdf")))
-  save_dual(make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC, clipped",
-                       xlim=c(-4,4), ylim=c(0,25)),
-          file.path(opt$outdir, paste0(cid, "_volcano_raw_clipped.pdf")))
-  save_dual(make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC, clipped",
-                       xlim=c(-4,4), ylim=c(0,25)),
-          file.path(opt$outdir, paste0(cid, "_volcano_shrunk_clipped.pdf")))
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_raw.pdf")),
+         make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC"), width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_shrunk.pdf")),
+         make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC"),   width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_raw_clipped.pdf")),
+         make_volcano(df_raw,    cid, lfc_thr, "unshrunken LFC, clipped",
+                      xlim=c(-4,4), ylim=c(0,25)), width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_volcano_shrunk_clipped.pdf")),
+         make_volcano(df_shrunk, cid, lfc_thr, "shrunken LFC, clipped",
+                      xlim=c(-4,4), ylim=c(0,25)), width=7, height=5)
 
   # -- MA plots ------------------------------------------------------------------
-  save_dual(make_ma(df_raw,    cid, lfc_thr, "unshrunken LFC"),
-          file.path(opt$outdir, paste0(cid, "_MA_raw.pdf")))
-  save_dual(make_ma(df_shrunk, cid, lfc_thr, "shrunken LFC"),
-          file.path(opt$outdir, paste0(cid, "_MA_shrunk.pdf")))
+  ggsave(file.path(opt$outdir, paste0(cid, "_MA_raw.pdf")),
+         make_ma(df_raw,    cid, lfc_thr, "unshrunken LFC"), width=7, height=5)
+  ggsave(file.path(opt$outdir, paste0(cid, "_MA_shrunk.pdf")),
+         make_ma(df_shrunk, cid, lfc_thr, "shrunken LFC"),   width=7, height=5)
 
   message(sprintf("[deseq2_de.R] %s: %d sig genes (padj<%.2f, |LFC|>%.1f)",
                   cid, nrow(sig), padj_thr, lfc_thr))

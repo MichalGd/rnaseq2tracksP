@@ -86,8 +86,7 @@ mkdir -p \
   "$OUTDIR/bedGraph/merged" \
   "$OUTDIR/bigwig" \
   "$OUTDIR/analysis/counts"     "$OUTDIR/analysis/DE" \
-  "$OUTDIR/analysis/figures"    "$OUTDIR/reports" \
-"$OUTDIR/fastQScreen"
+  "$OUTDIR/analysis/figures"    "$OUTDIR/reports"
 
 # ── Parse samplesheet ─────────────────────────────────────────────────────────
 declare -a SID R1 R2 COND REP STRAND
@@ -121,28 +120,6 @@ else
   log "STEP 3 — MultiQC raw"
   "${MULTIQC_BIN:-multiqc}" "$OUTDIR/fastQC/raw" -n multiQC_raw \
     -o "$OUTDIR/multiQC/raw" --data-format tsv --export -q
-fi
-
-# ── Step 2b: FastQ Screen — species swap + mycoplasma contamination ───────────
-_s2b="$OUTDIR/fastQScreen/${SID[0]}_screen.txt"
-if done_check "$_s2b"; then skip "STEP 2b — FastQ Screen"
-else
-  FASTQSCREEN_CONF="${FASTQSCREEN_CONF:-$REPO/config/fastq_screen.conf}"
-  if [[ -f "$FASTQSCREEN_CONF" ]] && command -v fastq_screen &>/dev/null; then
-    log "STEP 2b — FastQ Screen (species + mycoplasma screen)"
-    for ((i=0;i<N;i++)); do
-      submit "fastq_screen \
-        --conf '$FASTQSCREEN_CONF' \
-        --outdir '$OUTDIR/fastQScreen' \
-        --threads '${FASTQSCREEN_THREADS:-4}' \
-        --subset '${FASTQSCREEN_SUBSET:-200000}' \
-        --aligner bowtie2 \
-        '${R1[$i]}'"
-    done
-    wait_all
-  else
-    log "STEP 2b — FastQ Screen SKIPPED (fastq_screen not found or conf missing: $FASTQSCREEN_CONF)"
-  fi
 fi
 
 # ── Step 4: TrimGalore ────────────────────────────────────────────────────────
@@ -408,7 +385,7 @@ if done_check "$OUTDIR/multiQC/final/multiQC_final.html"; then
   skip "STEP 19 — MultiQC final"
 else
   log "STEP 19 — MultiQC final"
-  MQC_SOURCES=("$OUTDIR/fastQC" "$OUTDIR/fastQScreen" "$OUTDIR/multiQC/raw" "$OUTDIR/multiQC/trimmed"
+  MQC_SOURCES=("$OUTDIR/fastQC" "$OUTDIR/multiQC/raw" "$OUTDIR/multiQC/trimmed"
                "$OUTDIR/STARlogs" "$OUTDIR/multiQC/alignments")
   for d in read_distribution junction_annotation junction_saturation genebody; do
     [[ -d "$OUTDIR/07_qc/rseqc/$d" ]] && MQC_SOURCES+=("$OUTDIR/07_qc/rseqc/$d")
@@ -463,118 +440,3 @@ else
 fi
 
 log "rnaseq2tracks v4.3 complete.  Results: $OUTDIR"
-
-# =============================================================================
-# Step 22 — Post-run cleanup of large intermediate files
-# =============================================================================
-# Enable:   set CLEANUP_INTERMEDIATES=1 in config.conf
-# Dry-run:  set CLEANUP_DRYRUN=1        in config.conf  (prints, never deletes)
-# Optional: set CLEANUP_ALLCHR_BEDGRAPH=1 to also remove all_chromosomes.bedGraph.gz
-#
-# FILES REMOVED (all regenerable from raw FASTQs + pipeline scripts):
-#   trimmedFastq/    *_trimmed.fq.gz  *_val_1.fq.gz  *_val_2.fq.gz
-#   STARalignments/  *_Aligned.out.bam  *_SJ.out.tab
-#   bams/            *_sortedS.bam  *_sortedS.bam.bai
-#   bedGraph/raw/    *.bedGraph.gz        (un-normalised per-sample coverage)
-#   bedGraph/merged/ *.bedGraph           (uncompressed merged bedGraphs)
-#   bigwig/          *.all_chromosomes.bedGraph.gz  [optional]
-#
-# FILES KEPT:
-#   Original FASTQs (never touched by pipeline)
-#   bedGraph/normalized/  *_norm.bedGraph.gz
-#   bigwig/               *.sorted.bedGraph.gz  *.bw
-#   STARgeneCounts/  STARlogs/  analysis/  reports/  QC outputs
-# =============================================================================
-
-cleanup_intermediates() {
-    local outdir="$1"
-    local remove_allchr="${CLEANUP_ALLCHR_BEDGRAPH:-0}"
-    local dry="${CLEANUP_DRYRUN:-0}"
-
-    log "STEP 22 — Cleanup: verifying pipeline completion sentinels..."
-
-    local abort=0
-    local -a sentinels=(
-        "$outdir/multiQC/final/multiQC_final.html"
-        "$outdir/reports/pipeline_report.html"
-        "$outdir/analysis/enrichment/.enrichment_done"
-    )
-    for s in "${sentinels[@]}"; do
-        if [[ ! -e "$s" ]]; then
-            log "CLEANUP ABORTED — sentinel missing: $s"
-            abort=1
-        fi
-    done
-
-    local nbw
-    nbw=$(find "$outdir/bigwig" -name "*.bw" 2>/dev/null | wc -l)
-    if [[ "$nbw" -eq 0 ]]; then
-        log "CLEANUP ABORTED — no .bw files found in $outdir/bigwig/"
-        abort=1
-    fi
-
-    [[ $abort -eq 1 ]] && { log "Cleanup skipped — pipeline not fully complete."; return 1; }
-
-    [[ "$dry" == "1" ]] && log "STEP 22 — DRY-RUN mode (nothing will be deleted)"
-    log "STEP 22 — All sentinels OK. Starting cleanup..."
-
-    _rm() {
-        if [[ "$dry" == "1" ]]; then
-            echo "  [DRY-RUN] would delete: $*"
-        else
-            rm -f "$@"
-        fi
-    }
-
-    # 1. Trimmed FASTQs
-    log "  1/5  Trimmed FASTQs: $outdir/trimmedFastq/"
-    while IFS= read -r f; do _rm "$f"; done < <(
-        find "$outdir/trimmedFastq" -maxdepth 1 \
-            \( -name "*_trimmed.fq.gz" -o -name "*_val_1.fq.gz" -o -name "*_val_2.fq.gz" \) 2>/dev/null || true
-    )
-
-    # 2. STAR unsorted BAMs + SJ tables
-    log "  2/5  STAR unsorted BAMs + SJ tables: $outdir/STARalignments/"
-    while IFS= read -r f; do _rm "$f"; done < <(
-        find "$outdir/STARalignments" -maxdepth 1 \
-            \( -name "*_Aligned.out.bam" -o -name "*_SJ.out.tab" \) 2>/dev/null || true
-    )
-
-    # 3. Sorted BAMs + indices
-    log "  3/5  Sorted BAMs + indices: $outdir/bams/"
-    while IFS= read -r f; do _rm "$f"; done < <(
-        find "$outdir/bams" -maxdepth 1 \
-            \( -name "*_sortedS.bam" -o -name "*_sortedS.bam.bai" \) 2>/dev/null || true
-    )
-
-    # 4. Raw per-sample bedGraphs (already .gz from bam_to_bedgraph.R)
-    log "  4/5  Raw bedGraphs: $outdir/bedGraph/raw/"
-    while IFS= read -r f; do _rm "$f"; done < <(
-        find "$outdir/bedGraph/raw" -maxdepth 1 -name "*.bedGraph.gz" 2>/dev/null || true
-    )
-
-    # 5. Uncompressed merged bedGraphs (keep .gz files)
-    log "  5/5  Uncompressed merged bedGraphs: $outdir/bedGraph/merged/"
-    while IFS= read -r f; do _rm "$f"; done < <(
-        find "$outdir/bedGraph/merged" -maxdepth 1 -name "*.bedGraph" ! -name "*.gz" 2>/dev/null || true
-    )
-
-    # Optional: all_chromosomes.bedGraph.gz
-    if [[ "$remove_allchr" == "1" ]]; then
-        log "  OPT  all_chromosomes.bedGraph.gz: $outdir/bigwig/"
-        while IFS= read -r f; do _rm "$f"; done < <(
-            find "$outdir/bigwig" -maxdepth 1 -name "*.all_chromosomes.bedGraph.gz" 2>/dev/null || true
-        )
-    else
-        log "  OPT  Keeping all_chromosomes.bedGraph.gz (CLEANUP_ALLCHR_BEDGRAPH=0)."
-    fi
-
-    log "STEP 22 — Cleanup complete."
-}
-
-# Invoke (off by default)
-if [[ "${CLEANUP_INTERMEDIATES:-0}" == "1" ]]; then
-    cleanup_intermediates "$OUTDIR"
-else
-    log "Post-run cleanup skipped (CLEANUP_INTERMEDIATES=0). Set to 1 in config to enable."
-fi

@@ -29,7 +29,7 @@ p <- ggplot(pca, aes(PC1, PC2, color=condition, shape=replicate, label=name)) +
   geom_point(size=3) + ggrepel::geom_text_repel(size=3) +
   xlab(paste0("PC1 (",pct[1],"%)")) + ylab(paste0("PC2 (",pct[2],"%)")) +
   theme_bw()
-save_dual(p, file.path(opt$outdir,"PCA.pdf"), w=7, h=5)
+ggsave(file.path(opt$outdir,"PCA.pdf"), p, width=7, height=5)
 
 # Sample correlation heatmap
 sampleDists <- dist(t(assay(vsd)))
@@ -39,11 +39,6 @@ pheatmap(mat,
   clustering_distance_cols=sampleDists,
   col=colorRampPalette(rev(brewer.pal(9,"Blues")))(255),
   filename=file.path(opt$outdir,"sample_clustering.pdf"))
-pheatmap(mat,
-  clustering_distance_rows=sampleDists,
-  clustering_distance_cols=sampleDists,
-  col=colorRampPalette(rev(brewer.pal(9,"Blues")))(255),
-  filename=file.path(opt$outdir,"sample_clustering.png"))
 
 # Top 500 variable genes heatmap
 rv   <- rowVars(assay(vsd))
@@ -52,16 +47,9 @@ pheatmap(assay(vsd)[top,],
   scale="row", show_rownames=FALSE,
   annotation_col=as.data.frame(colData(vsd)[,c("condition","replicate")]),
   filename=file.path(opt$outdir,"top500_variable_genes_heatmap.pdf"))
-pheatmap(assay(vsd)[top,],
-  scale="row", show_rownames=FALSE,
-  annotation_col=as.data.frame(colData(vsd)[,c("condition","replicate")]),
-  filename=file.path(opt$outdir,"top500_variable_genes_heatmap.png"))
 
 # Mean-SD plot
 pdf(file.path(opt$outdir,"meanSD_plot.pdf"))
-meanSdPlot(assay(vsd))
-dev.off()
-png(file.path(opt$outdir,"meanSD_plot.png"), width=1050, height=700, res=150)
 meanSdPlot(assay(vsd))
 dev.off()
 

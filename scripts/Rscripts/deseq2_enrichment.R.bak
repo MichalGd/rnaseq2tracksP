@@ -35,10 +35,6 @@ suppressPackageStartupMessages({
   library(msigdbr)
 })
 
-# -- Headless PNG device fix (Cairo + fontconfig) ---------------------------
-options(bitmapType = "cairo")
-if (Sys.getenv("FONTCONFIG_PATH") == "") Sys.setenv(FONTCONFIG_PATH = "/etc/fonts")
-
 option_list <- list(
   make_option("--dedir",     type="character"),
   make_option("--contrasts", type="character"),
